@@ -1,18 +1,48 @@
 using EventSourcing.Core;
+using EventSourcing.Core.StateMachine;
 using EventSourcing.Example.Api.Domain.Events;
 
 namespace EventSourcing.Example.Api.Domain;
 
 public class OrderAggregate : AggregateBase<Guid>
 {
+    private readonly StateMachineWithEvents<OrderStatus> _stateMachine;
+
     public override Guid Id { get; protected set; }
     public Guid CustomerId { get; protected set; }
     public decimal Total { get; protected set; }
     public List<OrderItem> Items { get; protected set; } = new();
-    public OrderStatus Status { get; protected set; }
+    public OrderStatus Status => _stateMachine.CurrentState;
     public string? ShippingAddress { get; protected set; }
     public string? TrackingNumber { get; protected set; }
     public string? CancellationReason { get; protected set; }
+
+    // Parameterless constructor required by IAggregateRepository (event replay)
+    public OrderAggregate()
+    {
+        // State machine with domain event emission
+        _stateMachine = new StateMachineWithEvents<OrderStatus>(
+            initialState: OrderStatus.Pending,
+            aggregateType: nameof(OrderAggregate),
+            getAggregateId: () => Id.ToString(),
+            onTransition: (stateTransitionEvent) =>
+            {
+                // Emit state transition as a domain event
+                // This will be published via IEventBus to MediatR (infrastructure concern)
+                RaiseEvent(stateTransitionEvent);
+            }
+        );
+
+        ConfigureStateMachine();
+    }
+
+    private void ConfigureStateMachine()
+    {
+        // Define allowed transitions
+        _stateMachine.Allow(OrderStatus.Pending, OrderStatus.Shipped, OrderStatus.Cancelled);
+
+        // Note: Shipped and Cancelled are terminal states (no transitions out)
+    }
 
     // Commands - Business logic that raises events
 
@@ -52,9 +82,7 @@ public class OrderAggregate : AggregateBase<Guid>
         if (Id == Guid.Empty)
             throw new InvalidOperationException("Order does not exist");
 
-        if (Status != OrderStatus.Pending)
-            throw new InvalidOperationException($"Cannot ship order with status {Status}");
-
+        // Business rule validation
         if (Items.Count == 0)
             throw new InvalidOperationException("Cannot ship order with no items");
 
@@ -64,7 +92,13 @@ public class OrderAggregate : AggregateBase<Guid>
         if (string.IsNullOrWhiteSpace(trackingNumber))
             throw new ArgumentException("Tracking number is required", nameof(trackingNumber));
 
+        // Emit business event
         RaiseEvent(new OrderShippedEvent(shippingAddress, trackingNumber));
+
+        // State machine validates transition Pending → Shipped
+        // Emits StateTransitionEvent<OrderStatus> domain event
+        // Throws InvalidStateTransitionException if not allowed
+        _stateMachine.TransitionToWithEvent(OrderStatus.Shipped);
     }
 
     public void Cancel(string reason)
@@ -72,26 +106,31 @@ public class OrderAggregate : AggregateBase<Guid>
         if (Id == Guid.Empty)
             throw new InvalidOperationException("Order does not exist");
 
-        if (Status == OrderStatus.Shipped)
-            throw new InvalidOperationException("Cannot cancel shipped order");
-
         if (Status == OrderStatus.Cancelled)
-            return; // Already cancelled
+            return; // Already cancelled (idempotent)
 
         if (string.IsNullOrWhiteSpace(reason))
             throw new ArgumentException("Cancellation reason is required", nameof(reason));
 
+        // Emit business event
         RaiseEvent(new OrderCancelledEvent(reason));
+
+        // State machine validates transition Pending → Cancelled
+        // Emits StateTransitionEvent<OrderStatus> domain event
+        // Throws InvalidStateTransitionException if trying to cancel Shipped order
+        _stateMachine.TransitionToWithEvent(OrderStatus.Cancelled);
     }
 
-    // Event Handlers - Apply state changes
+    // Event Handlers - Apply state changes (used during event replay)
 
     private void Apply(OrderCreatedEvent @event)
     {
         Id = @event.OrderId;
         CustomerId = @event.CustomerId;
         Total = @event.Total;
-        Status = OrderStatus.Pending;
+
+        // SetState instead of TransitionTo - no validation during replay
+        _stateMachine.SetState(OrderStatus.Pending);
     }
 
     private void Apply(OrderItemAddedEvent @event)
@@ -110,13 +149,17 @@ public class OrderAggregate : AggregateBase<Guid>
     {
         ShippingAddress = @event.ShippingAddress;
         TrackingNumber = @event.TrackingNumber;
-        Status = OrderStatus.Shipped;
+
+        // SetState - no validation during replay (we trust the event history)
+        _stateMachine.SetState(OrderStatus.Shipped);
     }
 
     private void Apply(OrderCancelledEvent @event)
     {
         CancellationReason = @event.Reason;
-        Status = OrderStatus.Cancelled;
+
+        // SetState - no validation during replay
+        _stateMachine.SetState(OrderStatus.Cancelled);
     }
 }
 

@@ -1,4 +1,5 @@
 using EventSourcing.Example.Api.Domain;
+using EventSourcing.Example.Api.Infrastructure;
 using EventSourcing.MongoDB;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,6 +10,12 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new() { Title = "EventSourcing Example API", Version = "v1" });
+});
+
+// Add MediatR for CQRS and reactive workflows
+builder.Services.AddMediatR(cfg =>
+{
+    cfg.RegisterServicesFromAssembly(typeof(Program).Assembly);
 });
 
 // Configure Event Sourcing with MongoDB
@@ -27,8 +34,8 @@ builder.Services.AddEventSourcing(config =>
     // Optional: Add projections
     // config.AddProjection<UserListProjection>();
 
-    // Optional: Add external event publishers
-    // config.AddEventPublisher<RabbitMQPublisher>();
+    // Infrastructure bridge: Convert domain events → MediatR notifications
+    config.AddEventPublisher<MediatREventPublisher>();
 });
 
 // Register aggregate repositories
