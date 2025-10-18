@@ -13,7 +13,7 @@ public class MongoSagaStoreTests : IAsyncLifetime
 {
     private readonly IMongoDatabase _database;
     private readonly MongoSagaStore _store;
-    private const string TestDatabaseName = "SagaTests";
+    private const string TestDatabaseName = "test";
 
     public MongoSagaStoreTests()
     {

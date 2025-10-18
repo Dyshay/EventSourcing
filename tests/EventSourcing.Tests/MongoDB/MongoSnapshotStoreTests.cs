@@ -11,7 +11,7 @@ public class MongoSnapshotStoreTests : IAsyncLifetime
 {
     private readonly IMongoDatabase _database;
     private readonly MongoSnapshotStore _snapshotStore;
-    private const string TestDatabaseName = "EventSourcingSnapshotTests";
+    private const string TestDatabaseName = "test";
 
     public class TestAggregate : IAggregate<Guid>
     {

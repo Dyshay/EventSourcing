@@ -11,7 +11,7 @@ public class MongoEventStoreTests : IAsyncLifetime
 {
     private readonly IMongoDatabase _database;
     private readonly MongoEventStore _eventStore;
-    private const string TestDatabaseName = "EventSourcingTests";
+    private const string TestDatabaseName = "test";
 
     public record TestEventV1(string Data) : DomainEvent;
     public record TestEventV2(int Value) : DomainEvent;
