@@ -10,6 +10,9 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+
     services:
       mongodb:
         image: mongo:7.0

@@ -10,6 +10,11 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+
     services:
       mongodb:
         image: mongo:7.0
