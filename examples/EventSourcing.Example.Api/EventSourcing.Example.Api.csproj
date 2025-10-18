@@ -15,6 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\EventSourcing.Core\EventSourcing.Core.csproj" />
     <ProjectReference Include="..\..\src\EventSourcing.MongoDB\EventSourcing.MongoDB.csproj" />
+    <ProjectReference Include="..\..\src\EventSourcing.CQRS\EventSourcing.CQRS.csproj" />
   </ItemGroup>
 
 </Project>

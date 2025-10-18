@@ -123,7 +123,220 @@ public class OrdersController : ControllerBase
 
 ## Common Use Cases
 
-### Use Case 1: CQRS with MediatR
+### Use Case 1: Built-in CQRS Framework
+
+**When:** You want a complete CQRS solution with commands, queries, validation, caching, and performance optimizations built-in.
+
+**Quick Start:**
+
+```csharp
+// 1. Configure CQRS Framework with performance mode
+builder.Services.AddEventSourcing(config =>
+{
+    config.UseMongoDB("mongodb://localhost:27017", "eventstore")
+          .RegisterEventsFromAssembly(typeof(Program).Assembly);
+});
+
+builder.Services.AddCqrs(
+    cqrs => cqrs.AddHandlersFromAssembly(typeof(Program).Assembly),
+    options: CqrsOptions.HighPerformance() // 49% faster than Default mode
+);
+
+// 2. Define Command & Event
+public record CreateOrderCommand : ICommand<OrderCreatedEvent>
+{
+    public Guid CommandId { get; init; } = Guid.NewGuid();
+    public DateTimeOffset Timestamp { get; init; } = DateTimeOffset.UtcNow;
+    public Dictionary<string, object>? Metadata { get; init; }
+
+    public Guid CustomerId { get; init; }
+}
+
+// 3. Create Command Handler
+public class CreateOrderCommandHandler
+    : ICommandHandler<CreateOrderCommand, OrderCreatedEvent>
+{
+    private readonly IAggregateRepository<OrderAggregate, Guid> _repository;
+    private readonly ILogger<CreateOrderCommandHandler> _logger;
+
+    public CreateOrderCommandHandler(
+        IAggregateRepository<OrderAggregate, Guid> repository,
+        ILogger<CreateOrderCommandHandler> logger)
+    {
+        _repository = repository;
+        _logger = logger;
+    }
+
+    public async Task<CommandResult<OrderCreatedEvent>> HandleAsync(
+        CreateOrderCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Creating order for customer {CustomerId}", command.CustomerId);
+
+        var orderId = Guid.NewGuid();
+        var order = new OrderAggregate();
+        order.CreateOrder(orderId, command.CustomerId);
+
+        await _repository.SaveAsync(order, cancellationToken);
+
+        var @event = order.UncommittedEvents
+            .OfType<OrderCreatedEvent>()
+            .First();
+
+        return CommandResult<OrderCreatedEvent>.SuccessResult(
+            @event,
+            aggregateId: orderId,
+            version: order.Version
+        );
+    }
+}
+
+// 4. Add Validation (optional)
+public class CreateOrderCommandValidator : ICommandValidator<CreateOrderCommand>
+{
+    public Task<IEnumerable<string>> ValidateAsync(
+        CreateOrderCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        var errors = new List<string>();
+
+        if (command.CustomerId == Guid.Empty)
+            errors.Add("Customer ID is required");
+
+        return Task.FromResult<IEnumerable<string>>(errors);
+    }
+}
+
+// 5. Use in Controller
+[ApiController]
+[Route("api/orders")]
+public class OrdersController : ControllerBase
+{
+    private readonly ICommandBus _commandBus;
+    private readonly IQueryBus _queryBus;
+
+    public OrdersController(ICommandBus commandBus, IQueryBus queryBus)
+    {
+        _commandBus = commandBus;
+        _queryBus = queryBus;
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequest request)
+    {
+        var command = new CreateOrderCommand
+        {
+            CustomerId = request.CustomerId,
+            Metadata = new Dictionary<string, object>
+            {
+                ["UserId"] = User?.Identity?.Name ?? "Anonymous",
+                ["IpAddress"] = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown"
+            }
+        };
+
+        var result = await _commandBus.SendAsync(command);
+
+        if (!result.Success)
+            return BadRequest(new { error = result.ErrorMessage });
+
+        return CreatedAtAction(
+            nameof(GetOrder),
+            new { id = result.AggregateId },
+            new
+            {
+                orderId = result.AggregateId,
+                @event = result.Data,
+                version = result.Version,
+                executionTimeMs = result.ExecutionTimeMs
+            });
+    }
+
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetOrder(Guid id)
+    {
+        var query = new GetOrderQuery { OrderId = id };
+
+        // Use cache for 5 minutes with sliding expiration
+        var cacheOptions = CacheOptions.WithDuration(
+            TimeSpan.FromMinutes(5),
+            sliding: true
+        );
+
+        var order = await _queryBus.SendAsync(query, cacheOptions);
+
+        if (order == null)
+            return NotFound();
+
+        return Ok(order);
+    }
+}
+```
+
+**Performance Modes:**
+
+```csharp
+// Default: Full observability (audit trail + logging)
+CqrsOptions.Default()
+
+// HighPerformance: 49% faster, no audit trail, minimal logging
+CqrsOptions.HighPerformance()
+
+// Custom: Fine-tune optimizations
+new CqrsOptions
+{
+    EnableAuditTrail = false,      // Disable CommandContext tracking
+    EnableLogging = true,           // Keep logging
+    EnableCommandContextPooling = true,  // Use ObjectPool
+    EnableTypeCaching = true,       // Cache MakeGenericType results
+    CacheQueryResults = true        // Enable IMemoryCache for queries
+}
+```
+
+**Benchmark Results** (.NET 9.0, Intel i9-13900KF):
+
+| Configuration | Command Time | vs MediatR | Use Case |
+|--------------|--------------|------------|----------|
+| **MediatR** | 91.6 ns | 1.0x | Minimal overhead baseline |
+| **CQRS HighPerf** | 1,034 ns | 11.4x | High-throughput APIs |
+| **CQRS Default** | 2,038 ns | 22.5x | Enterprise + compliance (audit trail) |
+
+**✅ HighPerformance mode delivers 49% improvement over Default mode for commands**
+
+**Benefits:**
+- ✅ **Built-in validation** - Automatic validation before execution
+- ✅ **Query caching** - Automatic caching with sliding/absolute expiration
+- ✅ **Audit trail** - Track who, when, and what (Default mode)
+- ✅ **Performance modes** - Choose speed vs. observability trade-off
+- ✅ **Middleware pipeline** - Extensible for retry, metrics, custom logic
+- ✅ **Automatic cache invalidation** - Invalidate by event type
+
+**Query Caching Features:**
+
+```csharp
+// Example: Cache order status, invalidate on order events
+var cacheOptions = new CacheOptions
+{
+    CacheKey = $"order-status-{orderId}",
+    Duration = TimeSpan.FromMinutes(10),
+    InvalidateOnEvents = new[]
+    {
+        "OrderCreatedEvent",
+        "OrderItemAddedEvent",
+        "OrderShippedEvent",
+        "OrderCancelledEvent"
+    }
+};
+
+var status = await _queryBus.SendAsync(query, cacheOptions);
+```
+
+**Full Example:** See `examples/EventSourcing.Example.Api/` for complete working implementation
+
+**Performance Guide:** See [PERFORMANCE.md](PERFORMANCE.md) for detailed benchmarks and optimization strategies
+
+---
+
+### Use Case 2: CQRS with MediatR
 
 **When:** You want to separate commands (write) from queries (read) with reactive workflows.
 
@@ -173,7 +386,7 @@ public async Task<IActionResult> Ship(Guid id, ShipRequest req)
 
 ---
 
-### Use Case 2: State Machines for Validation
+### Use Case 3: State Machines for Validation
 
 **When:** You need to enforce valid state transitions (e.g., can't ship a cancelled order).
 
@@ -224,7 +437,7 @@ public class OrderAggregate : AggregateBase<Guid>
 
 ---
 
-### Use Case 3: Event Versioning & Schema Evolution
+### Use Case 4: Event Versioning & Schema Evolution
 
 **When:** You need to change event structure over time without breaking existing data.
 
@@ -263,7 +476,7 @@ builder.Services.AddEventSourcing(config =>
 
 ---
 
-### Use Case 4: Distributed Workflows (Sagas)
+### Use Case 5: Distributed Workflows (Sagas)
 
 **When:** You need to coordinate multi-step processes with automatic rollback on failure.
 
