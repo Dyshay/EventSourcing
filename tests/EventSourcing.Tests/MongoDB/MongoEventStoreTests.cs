@@ -31,6 +31,16 @@ public class MongoEventStoreTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        // Drop the collection first to ensure a clean state
+        try
+        {
+            await _database.DropCollectionAsync("testaggregate_events");
+        }
+        catch
+        {
+            // Ignore if collection doesn't exist
+        }
+
         await _eventStore.EnsureIndexesAsync("TestAggregate");
     }
 

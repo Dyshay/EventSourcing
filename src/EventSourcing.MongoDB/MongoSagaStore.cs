@@ -35,7 +35,7 @@ public class MongoSagaStore : ISagaStore
         {
             ["_id"] = saga.SagaId,
             ["sagaName"] = saga.SagaName,
-            ["data"] = BsonDocument.Parse(JsonSerializer.Serialize(saga.Data)),
+            ["data"] = JsonSerializer.Serialize(saga.Data),
             ["dataType"] = typeof(TData).AssemblyQualifiedName,
             ["status"] = saga.Status.ToString(),
             ["currentStepIndex"] = saga.CurrentStepIndex,
@@ -62,7 +62,7 @@ public class MongoSagaStore : ISagaStore
         if (document == null)
             return null;
 
-        var dataJson = document["data"].ToJson();
+        var dataJson = document["data"].AsString;
         var data = JsonSerializer.Deserialize<TData>(dataJson);
 
         if (data == null)
