@@ -29,23 +29,16 @@ public class MongoSagaStoreTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        // Ensure MongoDB is accessible before running tests
-        // Retry a few times to allow MongoDB service to start in CI environments
-        var maxRetries = 3;
-        for (int i = 0; i < maxRetries; i++)
+        try
         {
-            try
-            {
-                await _database.RunCommandAsync<BsonDocument>(new BsonDocument("ping", 1));
-                return; // Success
-            }
-            catch (TimeoutException) when (i < maxRetries - 1)
-            {
-                await Task.Delay(1000); // Wait 1 second before retry
-            }
+            // Test MongoDB connection - this will skip tests if MongoDB is not available
+            await _database.RunCommandAsync<BsonDocument>(new BsonDocument("ping", 1));
         }
-        // If we get here, MongoDB is not available
-        // Note: Test will fail, but quickly (not after 30s timeout)
+        catch (Exception)
+        {
+            // MongoDB not available - tests will be skipped
+            throw new SkipException("MongoDB is not available. Skipping integration tests.");
+        }
     }
 
     public async Task DisposeAsync()
@@ -60,7 +53,7 @@ public class MongoSagaStoreTests : IAsyncLifetime
         }
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task SaveAsync_WithValidSaga_ShouldSaveSaga()
     {
         // Arrange
@@ -76,7 +69,7 @@ public class MongoSagaStoreTests : IAsyncLifetime
         loaded.Should().NotBeNull();
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task SaveAsync_WithNullSaga_ShouldThrowArgumentNullException()
     {
         // Act & Assert
@@ -85,7 +78,7 @@ public class MongoSagaStoreTests : IAsyncLifetime
         );
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task LoadAsync_WithExistingSaga_ShouldReturnSaga()
     {
         // Arrange
@@ -107,7 +100,7 @@ public class MongoSagaStoreTests : IAsyncLifetime
         loaded.CurrentStepIndex.Should().Be(5);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task LoadAsync_WithNonExistingSaga_ShouldReturnNull()
     {
         // Act
@@ -117,7 +110,7 @@ public class MongoSagaStoreTests : IAsyncLifetime
         loaded.Should().BeNull();
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task LoadAsync_WithNullSagaId_ShouldThrowArgumentNullException()
     {
         // Act & Assert
@@ -126,7 +119,7 @@ public class MongoSagaStoreTests : IAsyncLifetime
         );
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task LoadAsync_WithEmptySagaId_ShouldThrowArgumentNullException()
     {
         // Act & Assert
@@ -135,7 +128,7 @@ public class MongoSagaStoreTests : IAsyncLifetime
         );
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task SaveAsync_UpdateExistingSaga_ShouldUpdateSaga()
     {
         // Arrange
@@ -157,7 +150,7 @@ public class MongoSagaStoreTests : IAsyncLifetime
         loaded.CurrentStepIndex.Should().Be(3);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task DeleteAsync_WithExistingSaga_ShouldRemoveSaga()
     {
         // Arrange
@@ -173,7 +166,7 @@ public class MongoSagaStoreTests : IAsyncLifetime
         loaded.Should().BeNull();
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task DeleteAsync_WithNonExistingSaga_ShouldNotThrow()
     {
         // Act
@@ -183,7 +176,7 @@ public class MongoSagaStoreTests : IAsyncLifetime
         await act.Should().NotThrowAsync();
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task DeleteAsync_WithNullSagaId_ShouldThrowArgumentNullException()
     {
         // Act & Assert
@@ -192,7 +185,7 @@ public class MongoSagaStoreTests : IAsyncLifetime
         );
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task SaveAndLoad_WithComplexData_ShouldPreserveAllProperties()
     {
         // Arrange
@@ -223,7 +216,7 @@ public class MongoSagaStoreTests : IAsyncLifetime
         loaded.CurrentStepIndex.Should().Be(1);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Store_WithMultipleSagas_ShouldIsolateEachSaga()
     {
         // Arrange
@@ -246,7 +239,7 @@ public class MongoSagaStoreTests : IAsyncLifetime
         loaded3!.Data.Id.Should().Be("3");
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task SaveAsync_MultipleTimes_ShouldAllowRepeatedSaves()
     {
         // Arrange
@@ -268,7 +261,7 @@ public class MongoSagaStoreTests : IAsyncLifetime
         loaded.CurrentStepIndex.Should().Be(3);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task SaveAsync_ShouldUpsertCorrectly()
     {
         // Arrange
@@ -292,7 +285,7 @@ public class MongoSagaStoreTests : IAsyncLifetime
         secondLoad.CurrentStepIndex.Should().Be(10);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task SaveAsync_ShouldStoreUpdatedTimestamp()
     {
         // Arrange
@@ -307,7 +300,7 @@ public class MongoSagaStoreTests : IAsyncLifetime
         loaded.Should().NotBeNull();
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task SaveAndLoad_WithAllSagaStatuses_ShouldPreserveStatus()
     {
         // Arrange & Act & Assert for each status
