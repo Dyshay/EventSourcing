@@ -72,4 +72,13 @@ public class MongoDBStorageProvider : IEventSourcingStorageProvider
         if (_database == null)
             throw new InvalidOperationException("MongoDB database is not configured");
     }
+
+    /// <summary>
+    /// Gets the underlying MongoDB database instance.
+    /// </summary>
+    /// <returns>The MongoDB database</returns>
+    public IMongoDatabase GetDatabase()
+    {
+        return _database;
+    }
 }

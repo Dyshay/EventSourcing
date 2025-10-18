@@ -1,6 +1,8 @@
+using EventSourcing.Abstractions.Sagas;
 using EventSourcing.Abstractions.Versioning;
 using EventSourcing.Core.Projections;
 using EventSourcing.Core.Publishing;
+using EventSourcing.Core.Sagas;
 using EventSourcing.Core.Snapshots;
 using EventSourcing.Core.Versioning;
 using Microsoft.Extensions.DependencyInjection;
@@ -125,6 +127,29 @@ public class EventSourcingBuilder
     public EventSourcingBuilder EnableEventVersioning()
     {
         Services.AddSingleton<IEventUpcasterRegistry, EventUpcasterRegistry>();
+        return this;
+    }
+
+    /// <summary>
+    /// Enables saga support with in-memory storage (suitable for development/testing).
+    /// </summary>
+    /// <returns>The builder for chaining</returns>
+    public EventSourcingBuilder EnableSagas()
+    {
+        Services.AddSingleton<ISagaStore, InMemorySagaStore>();
+        Services.AddScoped<ISagaOrchestrator, SagaOrchestrator>();
+        return this;
+    }
+
+    /// <summary>
+    /// Enables saga support with a custom saga store implementation.
+    /// </summary>
+    /// <typeparam name="TSagaStore">The saga store implementation type</typeparam>
+    /// <returns>The builder for chaining</returns>
+    public EventSourcingBuilder EnableSagas<TSagaStore>() where TSagaStore : class, ISagaStore
+    {
+        Services.AddSingleton<ISagaStore, TSagaStore>();
+        Services.AddScoped<ISagaOrchestrator, SagaOrchestrator>();
         return this;
     }
 }
