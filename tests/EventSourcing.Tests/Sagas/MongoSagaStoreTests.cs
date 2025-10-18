@@ -8,6 +8,7 @@ using Xunit;
 
 namespace EventSourcing.Tests.Sagas;
 
+[Collection("MongoDB Collection")]
 [Trait("Category", "Integration")]
 public class MongoSagaStoreTests : IAsyncLifetime
 {

@@ -7,6 +7,7 @@ using Xunit;
 
 namespace EventSourcing.Tests.MongoDB;
 
+[Collection("MongoDB Collection")]
 public class MongoEventStoreTests : IAsyncLifetime
 {
     private readonly IMongoDatabase _database;
