@@ -15,7 +15,9 @@ public class MongoSnapshotStore : ISnapshotStore
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = false
+        WriteIndented = false,
+        IncludeFields = true, // Include backing fields for properties with private setters
+        PropertyNameCaseInsensitive = true
     };
 
     public MongoSnapshotStore(IMongoDatabase database)

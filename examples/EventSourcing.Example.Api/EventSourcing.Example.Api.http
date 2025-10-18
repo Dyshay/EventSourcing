@@ -1,9 +1,13 @@
 @baseUrl = http://localhost:5147
-@userId = f59a7e6e-9b48-449d-9fae-408da115902f
+@userId = 9906e267-3f6a-466f-adbe-88d7a9231a94
 
 ###############################################################################
 # User Management - CRUD Operations
 ###############################################################################
+
+### Get all users
+GET {{baseUrl}}/api/users
+Accept: application/json
 
 ### Create a new user
 # @name createUser

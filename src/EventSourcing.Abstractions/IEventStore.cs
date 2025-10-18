@@ -165,4 +165,15 @@ public interface IEventStore
         string aggregateType,
         IEnumerable<string> kinds,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves all distinct aggregate IDs for a given aggregate type.
+    /// Useful for listing all aggregates without a dedicated read model.
+    /// </summary>
+    /// <param name="aggregateType">Type name of the aggregate</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>All distinct aggregate IDs</returns>
+    Task<IEnumerable<string>> GetAllAggregateIdsAsync(
+        string aggregateType,
+        CancellationToken cancellationToken = default);
 }

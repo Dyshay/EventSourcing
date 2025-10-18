@@ -21,6 +21,37 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
+    /// Get all users
+    /// </summary>
+    [HttpGet]
+    [ProducesResponseType(typeof(IEnumerable<UserResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAllUsers()
+    {
+        var eventStore = HttpContext.RequestServices.GetRequiredService<IEventStore>();
+        var aggregateIds = await eventStore.GetAllAggregateIdsAsync("UserAggregate");
+
+        var users = new List<UserResponse>();
+
+        foreach (var aggregateIdStr in aggregateIds)
+        {
+            try
+            {
+                var aggregateId = Guid.Parse(aggregateIdStr);
+                var user = await _repository.GetByIdAsync(aggregateId);
+                users.Add(MapToResponse(user));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load user with ID {AggregateId}", aggregateIdStr);
+            }
+        }
+
+        _logger.LogInformation("Retrieved {Count} users", users.Count);
+
+        return Ok(users);
+    }
+
+    /// <summary>
     /// Create a new user
     /// </summary>
     [HttpPost]

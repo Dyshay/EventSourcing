@@ -328,6 +328,20 @@ public class MongoEventStore : IEventStore
         return documents.Select(ConvertToEnvelope).ToList();
     }
 
+    public async Task<IEnumerable<string>> GetAllAggregateIdsAsync(
+        string aggregateType,
+        CancellationToken cancellationToken = default)
+    {
+        var collection = GetEventCollection(aggregateType);
+
+        // Get distinct aggregate IDs
+        var aggregateIds = await collection
+            .Distinct(e => e.AggregateId, Builders<EventDocument>.Filter.Empty)
+            .ToListAsync(cancellationToken);
+
+        return aggregateIds;
+    }
+
     private static EventEnvelope ConvertToEnvelope(EventDocument doc)
     {
         // Parse the JSON data to extract only event-specific properties

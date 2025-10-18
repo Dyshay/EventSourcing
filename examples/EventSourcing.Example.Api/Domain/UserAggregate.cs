@@ -6,11 +6,11 @@ namespace EventSourcing.Example.Api.Domain;
 public class UserAggregate : AggregateBase<Guid>
 {
     public override Guid Id { get; protected set; }
-    public string Email { get; private set; } = string.Empty;
-    public string FirstName { get; private set; } = string.Empty;
-    public string LastName { get; private set; } = string.Empty;
-    public bool IsActive { get; private set; }
-    public string? DeactivationReason { get; private set; }
+    public string Email { get; protected set; } = string.Empty;
+    public string FirstName { get; protected set; } = string.Empty;
+    public string LastName { get; protected set; } = string.Empty;
+    public bool IsActive { get; protected set; }
+    public string? DeactivationReason { get; protected set; }
 
     // Commands - Business logic that raises events
 
