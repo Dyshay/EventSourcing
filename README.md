@@ -27,8 +27,9 @@ Event sourcing captures **all changes to application state** as a sequence of im
 - ⚡ **Concurrency Control** - Built-in optimistic locking with versioning
 - 🔍 **Query API** - Rich event querying for projections and read models
 - 🔄 **Event Versioning** - Automatic upcasting for event schema evolution
+- 🔀 **Saga Pattern** - Long-running processes with automatic compensation
 - 🧩 **Extensible** - Provider pattern ready for SQL Server, PostgreSQL, etc.
-- ✅ **Production Ready** - 94+ tests with continuous integration
+- ✅ **Production Ready** - 170+ tests with continuous integration
 
 ## Installation
 
@@ -305,6 +306,114 @@ await repo.SaveAsync(user); // ❌ ConcurrencyException!
 
 Handle with retry logic or conflict resolution strategies.
 
+### Sagas (Distributed Transactions)
+
+Sagas coordinate long-running business processes across multiple aggregates or services with automatic compensation on failure.
+
+**Configuration:**
+
+```csharp
+builder.Services.AddEventSourcing(config =>
+{
+    config.UseMongoDB("mongodb://localhost:27017", "eventstore")
+          .EnableMongoDBSagas(); // Enable saga support with MongoDB storage
+
+    // Or use in-memory storage (for testing)
+    // config.EnableSagas();
+});
+```
+
+**Defining a Saga:**
+
+```csharp
+// 1. Define saga data context
+public class OrderData
+{
+    public Guid OrderId { get; set; }
+    public decimal TotalAmount { get; set; }
+    public string? PaymentTransactionId { get; set; }
+    public string? ReservationId { get; set; }
+}
+
+// 2. Create saga steps with compensation logic
+public class ReserveInventoryStep : SagaStepBase<OrderData>
+{
+    public override string Name => "ReserveInventory";
+
+    public override async Task<bool> ExecuteAsync(OrderData data, CancellationToken ct)
+    {
+        // Reserve inventory
+        data.ReservationId = await _inventoryService.ReserveAsync(data.OrderId);
+        return true;
+    }
+
+    public override async Task<bool> CompensateAsync(OrderData data, CancellationToken ct)
+    {
+        // Release reservation on failure
+        await _inventoryService.ReleaseAsync(data.ReservationId);
+        return true;
+    }
+}
+
+public class ProcessPaymentStep : SagaStepBase<OrderData>
+{
+    public override string Name => "ProcessPayment";
+
+    public override async Task<bool> ExecuteAsync(OrderData data, CancellationToken ct)
+    {
+        // Process payment
+        data.PaymentTransactionId = await _paymentService.ChargeAsync(data.TotalAmount);
+        return true;
+    }
+
+    public override async Task<bool> CompensateAsync(OrderData data, CancellationToken ct)
+    {
+        // Refund on failure
+        await _paymentService.RefundAsync(data.PaymentTransactionId);
+        return true;
+    }
+}
+
+// 3. Execute the saga
+var orderData = new OrderData { OrderId = Guid.NewGuid(), TotalAmount = 99.99m };
+
+var saga = new Saga<OrderData>("OrderProcessing", orderData)
+    .AddSteps(
+        new ValidateOrderStep(),
+        new ReserveInventoryStep(),
+        new ProcessPaymentStep(),
+        new ConfirmOrderStep()
+    );
+
+var result = await _sagaOrchestrator.ExecuteAsync(saga);
+
+if (result.Status == SagaStatus.Completed)
+{
+    // Success!
+}
+else if (result.Status == SagaStatus.Compensated)
+{
+    // Failed and rolled back successfully
+}
+```
+
+**How it works:**
+
+1. **Forward Execution** - Steps execute in order
+2. **Automatic Compensation** - On failure, completed steps compensate in reverse order
+3. **Persistence** - Saga state is persisted for reliability
+4. **Idempotency** - Steps should be idempotent for safe retries
+
+**Saga Status:**
+- `NotStarted` - Saga hasn't started
+- `Running` - Currently executing
+- `Completed` - All steps succeeded
+- `Compensating` - Rolling back
+- `Compensated` - Successfully rolled back
+- `CompensationFailed` - Rollback failed (requires manual intervention)
+
+See `examples/EventSourcing.Example.Api/Controllers/SagaController.cs` for a complete example.
+
 ## Event Queries for CQRS
 
 Build optimized read models using event queries:
@@ -398,7 +507,7 @@ Snapshots:
 
 ## Testing
 
-The library includes 85+ tests with comprehensive coverage:
+The library includes 170+ tests with comprehensive coverage:
 
 ```bash
 dotnet test
@@ -574,7 +683,7 @@ See `.github/workflows/` for workflow configurations.
 - [ ] SQL Server provider
 - [ ] PostgreSQL provider
 - [x] Event versioning and upcasting ✅
-- [ ] Saga pattern support
+- [x] Saga pattern support ✅
 - [ ] Built-in projection framework
 - [ ] Event subscriptions/notifications
 - [ ] Migration utilities

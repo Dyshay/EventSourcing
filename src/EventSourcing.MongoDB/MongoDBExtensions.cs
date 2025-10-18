@@ -1,6 +1,8 @@
 using EventSourcing.Abstractions;
+using EventSourcing.Abstractions.Sagas;
 using EventSourcing.Core.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using MongoDB.Driver;
 
 namespace EventSourcing.MongoDB;
 
@@ -97,6 +99,32 @@ public static class MongoDBExtensions
             Serialization.EventSerializer.RegisterEventType(eventType);
         }
 
+        return builder;
+    }
+
+    /// <summary>
+    /// Enables saga support with MongoDB storage.
+    /// Requires UseMongoDB to be called first.
+    /// </summary>
+    /// <param name="builder">The event sourcing builder</param>
+    /// <returns>The builder for chaining</returns>
+    public static EventSourcingBuilder EnableMongoDBSagas(this EventSourcingBuilder builder)
+    {
+        // Get the MongoDB database from the storage provider
+        builder.Services.AddSingleton<ISagaStore>(sp =>
+        {
+            var provider = sp.GetRequiredService<IEventSourcingStorageProvider>();
+            if (provider is not MongoDBStorageProvider mongoProvider)
+            {
+                throw new InvalidOperationException(
+                    "EnableMongoDBSagas requires UseMongoDB to be called first");
+            }
+
+            var database = mongoProvider.GetDatabase();
+            return new MongoSagaStore(database);
+        });
+
+        builder.Services.AddScoped<ISagaOrchestrator, Core.Sagas.SagaOrchestrator>();
         return builder;
     }
 }
