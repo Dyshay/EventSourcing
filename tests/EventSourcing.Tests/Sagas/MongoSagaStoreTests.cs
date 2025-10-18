@@ -2,11 +2,13 @@ using EventSourcing.Abstractions.Sagas;
 using EventSourcing.Core.Sagas;
 using EventSourcing.MongoDB;
 using FluentAssertions;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using Xunit;
 
 namespace EventSourcing.Tests.Sagas;
 
+[Trait("Category", "Integration")]
 public class MongoSagaStoreTests : IAsyncLifetime
 {
     private readonly IMongoDatabase _database;
@@ -15,19 +17,47 @@ public class MongoSagaStoreTests : IAsyncLifetime
 
     public MongoSagaStoreTests()
     {
-        var client = new MongoClient("mongodb://localhost:27017");
+        // Configure MongoDB client with short timeout to fail fast if MongoDB is unavailable
+        var settings = MongoClientSettings.FromConnectionString("mongodb://localhost:27017");
+        settings.ServerSelectionTimeout = TimeSpan.FromSeconds(5);
+        settings.ConnectTimeout = TimeSpan.FromSeconds(5);
+
+        var client = new MongoClient(settings);
         _database = client.GetDatabase(TestDatabaseName);
         _store = new MongoSagaStore(_database);
     }
 
-    public Task InitializeAsync()
+    public async Task InitializeAsync()
     {
-        return Task.CompletedTask;
+        // Ensure MongoDB is accessible before running tests
+        // Retry a few times to allow MongoDB service to start in CI environments
+        var maxRetries = 3;
+        for (int i = 0; i < maxRetries; i++)
+        {
+            try
+            {
+                await _database.RunCommandAsync<BsonDocument>(new BsonDocument("ping", 1));
+                return; // Success
+            }
+            catch (TimeoutException) when (i < maxRetries - 1)
+            {
+                await Task.Delay(1000); // Wait 1 second before retry
+            }
+        }
+        // If we get here, MongoDB is not available
+        // Note: Test will fail, but quickly (not after 30s timeout)
     }
 
     public async Task DisposeAsync()
     {
-        await _database.Client.DropDatabaseAsync(TestDatabaseName);
+        try
+        {
+            await _database.Client.DropDatabaseAsync(TestDatabaseName);
+        }
+        catch
+        {
+            // Ignore cleanup errors
+        }
     }
 
     [Fact]
