@@ -1,6 +1,17 @@
 name: Release
 
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (semver format: x.y.z)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
   push:
     tags:
       - 'v*.*.*'
@@ -15,15 +26,24 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '9.0.x'
 
-    - name: Extract version from tag
+    - name: Determine version
       id: get_version
-      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          VERSION="${GITHUB_REF#refs/tags/v}"
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "TAG=v$VERSION" >> $GITHUB_OUTPUT
 
     - name: Restore dependencies
       run: dotnet restore EventSourcing.sln
@@ -34,6 +54,14 @@ jobs:
     - name: Test
       run: dotnet test EventSourcing.sln --configuration Release --no-build
 
+    - name: Create and push tag
+      if: github.event_name == 'workflow_dispatch'
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git tag -a "${{ steps.get_version.outputs.TAG }}" -m "Release ${{ steps.get_version.outputs.VERSION }}"
+        git push origin "${{ steps.get_version.outputs.TAG }}"
+
     - name: Pack NuGet packages
       run: |
         dotnet pack src/EventSourcing.Abstractions/EventSourcing.Abstractions.csproj --configuration Release --no-build --output ./packages -p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
@@ -42,12 +70,24 @@ jobs:
 
     - name: Push to NuGet
       run: dotnet nuget push ./packages/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
-      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
+        tag_name: ${{ steps.get_version.outputs.TAG }}
+        name: Release ${{ steps.get_version.outputs.VERSION }}
         files: ./packages/*.nupkg
         generate_release_notes: true
+        prerelease: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.prerelease == 'true' || false }}
+        body: |
+          ## NuGet Packages
+          - EventSourcing.Abstractions ${{ steps.get_version.outputs.VERSION }}
+          - EventSourcing.Core ${{ steps.get_version.outputs.VERSION }}
+          - EventSourcing.MongoDB ${{ steps.get_version.outputs.VERSION }}
+
+          ### Installation
+          ```bash
+          dotnet add package EventSourcing.MongoDB --version ${{ steps.get_version.outputs.VERSION }}
+          ```
       env:
         GITHUB_TOKEN: ${{ secrets.GTB_TOKEN }}
