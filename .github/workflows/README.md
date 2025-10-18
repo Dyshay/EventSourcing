@@ -21,7 +21,7 @@ This directory contains GitHub Actions workflows for continuous integration and 
 
 **Status Badge:**
 ```markdown
-![CI](https://github.com/YOUR_USERNAME/event-sourcing/workflows/CI%20Build%20and%20Test/badge.svg)
+![CI](https://github.com/Dyshay/EventSourcing/workflows/CI%20Build%20and%20Test/badge.svg)
 ```
 
 ### 2. Code Coverage (`code-coverage.yml`)
@@ -45,7 +45,7 @@ This directory contains GitHub Actions workflows for continuous integration and 
 
 **Status Badge:**
 ```markdown
-[![codecov](https://codecov.io/gh/YOUR_USERNAME/event-sourcing/branch/master/graph/badge.svg)](https://codecov.io/gh/YOUR_USERNAME/event-sourcing)
+[![codecov](https://codecov.io/gh/Dyshay/EventSourcing/branch/master/graph/badge.svg)](https://codecov.io/gh/Dyshay/EventSourcing)
 ```
 
 ### 3. Release (`release.yml`)
@@ -104,8 +104,8 @@ The workflows use MongoDB as a service container for integration tests:
 Add these badges to your README.md:
 
 ```markdown
-![CI](https://github.com/YOUR_USERNAME/event-sourcing/workflows/CI%20Build%20and%20Test/badge.svg)
-[![codecov](https://codecov.io/gh/YOUR_USERNAME/event-sourcing/branch/master/graph/badge.svg)](https://codecov.io/gh/YOUR_USERNAME/event-sourcing)
+![CI](https://github.com/Dyshay/EventSourcing/workflows/CI%20Build%20and%20Test/badge.svg)
+[![codecov](https://codecov.io/gh/Dyshay/EventSourcing/branch/master/graph/badge.svg)](https://codecov.io/gh/Dyshay/EventSourcing)
 ```
 
 ## Local Testing
