@@ -53,7 +53,11 @@ jobs:
       
     - name: Test
       run: dotnet test EventSourcing.sln --configuration Release --no-build
-
+      env:
+        # Use secret if available, otherwise fall back to local MongoDB service
+        MONGODB_CONNECTION_STRING: ${{ secrets.MONGODB_CONNECTION_STRING || 'mongodb://localhost:27017' }}
+        CI: true
+        
     - name: Create and push tag
       if: github.event_name == 'workflow_dispatch'
       run: |
