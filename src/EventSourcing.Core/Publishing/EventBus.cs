@@ -12,7 +12,7 @@ namespace EventSourcing.Core.Publishing;
 public class EventBus : IEventBus
 {
     private readonly IServiceProvider _serviceProvider;
-    private readonly Dictionary<Type, List<Action<object, IEvent>>> _projectionHandlers = new();
+    private readonly Dictionary<Type, List<Action<object, IEvent>>> _projectionHandlers = [];
 
     public EventBus(IServiceProvider serviceProvider)
     {
@@ -21,7 +21,7 @@ public class EventBus : IEventBus
 
     public async Task PublishAsync(IEvent @event, CancellationToken cancellationToken = default)
     {
-        await PublishAsync(new[] { @event }, cancellationToken);
+        await PublishAsync([@event], cancellationToken);
     }
 
     public async Task PublishAsync(IEnumerable<IEvent> events, CancellationToken cancellationToken = default)
@@ -76,7 +76,7 @@ public class EventBus : IEventBus
             "Handle",
             BindingFlags.Public | BindingFlags.Instance,
             null,
-            new[] { eventType, typeof(CancellationToken) },
+            [eventType, typeof(CancellationToken)],
             null);
 
         if (method == null)
@@ -86,15 +86,15 @@ public class EventBus : IEventBus
                 "Handle",
                 BindingFlags.Public | BindingFlags.Instance,
                 null,
-                new[] { eventType },
+                [eventType],
                 null);
         }
 
         if (method != null)
         {
             var result = method.Invoke(projection, method.GetParameters().Length == 2
-                ? new object[] { @event, cancellationToken }
-                : new object[] { @event });
+                ? [@event, cancellationToken]
+                : [@event]);
 
             if (result is Task task)
             {

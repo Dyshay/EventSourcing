@@ -5,10 +5,10 @@ using EventSourcing.Abstractions;
 namespace EventSourcing.Core;
 
 /// <summary>
-/// Base class for domain events providing common event properties.
-/// Inherit from this class to create your domain events.
+/// Base record for domain events providing common event properties.
+/// Inherit from this record to create your domain events.
 /// </summary>
-public abstract class DomainEvent : IEvent
+public abstract record DomainEvent : IEvent
 {
     protected DomainEvent()
     {

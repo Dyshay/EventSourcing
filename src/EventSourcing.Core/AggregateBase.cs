@@ -10,8 +10,8 @@ namespace EventSourcing.Core;
 /// <typeparam name="TId">Type of the aggregate identifier</typeparam>
 public abstract class AggregateBase<TId> : IAggregate<TId> where TId : notnull
 {
-    private readonly List<IEvent> _uncommittedEvents = new();
-    private readonly Dictionary<Type, MethodInfo> _eventHandlers = new();
+    private readonly List<IEvent> _uncommittedEvents = [];
+    private readonly Dictionary<Type, MethodInfo> _eventHandlers = [];
 
     protected AggregateBase()
     {
