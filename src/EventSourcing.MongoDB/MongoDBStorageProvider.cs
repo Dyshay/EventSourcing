@@ -1,4 +1,5 @@
 using EventSourcing.Abstractions;
+using EventSourcing.Abstractions.Versioning;
 using MongoDB.Driver;
 
 namespace EventSourcing.MongoDB;
@@ -32,6 +33,17 @@ public class MongoDBStorageProvider : IEventSourcingStorageProvider
     public IEventStore CreateEventStore()
     {
         _eventStore ??= new MongoEventStore(_database);
+        return _eventStore;
+    }
+
+    /// <summary>
+    /// Creates an event store with the specified upcaster registry for event versioning support.
+    /// </summary>
+    /// <param name="upcasterRegistry">The upcaster registry to use</param>
+    /// <returns>The event store instance</returns>
+    public IEventStore CreateEventStoreWithRegistry(IEventUpcasterRegistry upcasterRegistry)
+    {
+        _eventStore = new MongoEventStore(_database, upcasterRegistry);
         return _eventStore;
     }
 

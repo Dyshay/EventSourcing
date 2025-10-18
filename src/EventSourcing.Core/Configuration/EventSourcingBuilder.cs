@@ -1,6 +1,8 @@
+using EventSourcing.Abstractions.Versioning;
 using EventSourcing.Core.Projections;
 using EventSourcing.Core.Publishing;
 using EventSourcing.Core.Snapshots;
+using EventSourcing.Core.Versioning;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace EventSourcing.Core.Configuration;
@@ -81,6 +83,48 @@ public class EventSourcingBuilder
     public EventSourcingBuilder DisableEventPublishing()
     {
         Options.EnableEventPublishing = false;
+        return this;
+    }
+
+    /// <summary>
+    /// Registers an event upcaster for transforming old event versions to new versions.
+    /// </summary>
+    /// <param name="upcaster">The upcaster instance to register</param>
+    /// <returns>The builder for chaining</returns>
+    public EventSourcingBuilder AddUpcaster(IEventUpcaster upcaster)
+    {
+        ArgumentNullException.ThrowIfNull(upcaster);
+
+        // Store the upcaster to be registered later
+        // We register it as a singleton factory that adds to the registry
+        Services.AddSingleton(sp =>
+        {
+            var registry = sp.GetRequiredService<IEventUpcasterRegistry>();
+            registry.RegisterUpcaster(upcaster);
+            return upcaster;
+        });
+
+        return this;
+    }
+
+    /// <summary>
+    /// Registers an event upcaster type for transforming old event versions to new versions.
+    /// </summary>
+    /// <typeparam name="TUpcaster">The upcaster type to register</typeparam>
+    /// <returns>The builder for chaining</returns>
+    public EventSourcingBuilder AddUpcaster<TUpcaster>() where TUpcaster : IEventUpcaster, new()
+    {
+        return AddUpcaster(new TUpcaster());
+    }
+
+    /// <summary>
+    /// Enables event versioning with upcasting support.
+    /// Call this before adding upcasters.
+    /// </summary>
+    /// <returns>The builder for chaining</returns>
+    public EventSourcingBuilder EnableEventVersioning()
+    {
+        Services.AddSingleton<IEventUpcasterRegistry, EventUpcasterRegistry>();
         return this;
     }
 }
