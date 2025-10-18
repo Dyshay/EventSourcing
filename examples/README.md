@@ -1,49 +1,49 @@
 # Event Sourcing Example API
 
-Cette API d'exemple démontre l'utilisation du package Event Sourcing pour gérer des utilisateurs avec un pattern CQRS et Event Sourcing.
+This example API demonstrates the use of the Event Sourcing package for managing users with CQRS and Event Sourcing patterns.
 
 ## Architecture
 
-L'exemple implémente un agrégat `UserAggregate` avec les événements suivants :
+The example implements a `UserAggregate` with the following events:
 
-- `UserCreatedEvent` - Création d'un utilisateur
-- `UserNameChangedEvent` - Changement de nom
-- `UserEmailChangedEvent` - Changement d'email
+- `UserCreatedEvent` - User creation
+- `UserNameChangedEvent` - Name change
+- `UserEmailChangedEvent` - Email change
 - `UserActivatedEvent` - Activation
-- `UserDeactivatedEvent` - Désactivation
+- `UserDeactivatedEvent` - Deactivation
 
-## Prérequis
+## Prerequisites
 
 - .NET 9.0 SDK
-- Docker et Docker Compose (pour MongoDB)
+- Docker and Docker Compose (for MongoDB)
 
-## Démarrage rapide
+## Quick Start
 
-### 1. Démarrer MongoDB avec Docker
+### 1. Start MongoDB with Docker
 
 ```bash
 cd examples
 docker-compose up -d
 ```
 
-Cela démarre un conteneur MongoDB sur le port 27017.
+This starts a MongoDB container on port 27017.
 
-### 2. Lancer l'API
+### 2. Run the API
 
 ```bash
 cd examples/EventSourcing.Example.Api
 dotnet run
 ```
 
-L'API sera disponible sur `https://localhost:5001` (ou le port indiqué dans la console).
+The API will be available at `https://localhost:5001` (or the port shown in the console).
 
-### 3. Accéder à Swagger UI
+### 3. Access Swagger UI
 
-Ouvrez votre navigateur et accédez à : `https://localhost:5001/swagger`
+Open your browser and navigate to: `https://localhost:5001/swagger`
 
-## Endpoints API
+## API Endpoints
 
-### Créer un utilisateur
+### Create a User
 
 ```http
 POST /api/users
@@ -56,7 +56,7 @@ Content-Type: application/json
 }
 ```
 
-**Réponse (201 Created):**
+**Response (201 Created):**
 ```json
 {
   "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
@@ -69,13 +69,13 @@ Content-Type: application/json
 }
 ```
 
-### Obtenir un utilisateur
+### Get a User
 
 ```http
 GET /api/users/{id}
 ```
 
-**Réponse (200 OK):**
+**Response (200 OK):**
 ```json
 {
   "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
@@ -88,7 +88,7 @@ GET /api/users/{id}
 }
 ```
 
-### Modifier le nom
+### Update User Name
 
 ```http
 PUT /api/users/{id}/name
@@ -100,7 +100,7 @@ Content-Type: application/json
 }
 ```
 
-### Modifier l'email
+### Update User Email
 
 ```http
 PUT /api/users/{id}/email
@@ -111,13 +111,13 @@ Content-Type: application/json
 }
 ```
 
-### Activer un utilisateur
+### Activate a User
 
 ```http
 POST /api/users/{id}/activate
 ```
 
-### Désactiver un utilisateur
+### Deactivate a User
 
 ```http
 POST /api/users/{id}/deactivate
@@ -128,13 +128,13 @@ Content-Type: application/json
 }
 ```
 
-### Récupérer l'historique des événements d'un utilisateur
+### Get User Event History
 
 ```http
 GET /api/users/{id}/events
 ```
 
-**Réponse (200 OK):**
+**Response (200 OK):**
 ```json
 [
   {
@@ -166,37 +166,37 @@ GET /api/users/{id}/events
 ]
 ```
 
-**Utile pour :**
-- Audit trail d'un utilisateur spécifique
-- Voir l'historique complet des modifications
-- Debug d'un cas spécifique
+**Useful for:**
+- Audit trail for a specific user
+- View complete modification history
+- Debug a specific case
 
-### Récupérer tous les événements (tous les utilisateurs)
+### Get All Events (All Users)
 
 ```http
 GET /api/events/users
 ```
 
-**Utile pour :**
-- Audit trail complet
+**Useful for:**
+- Complete audit trail
 - Event replay
-- Construction de projections
-- Analyse historique
+- Building projections
+- Historical analysis
 
-### Récupérer les événements depuis une date
+### Get Events Since a Date
 
 ```http
 GET /api/events/users/since?since=2024-01-15T00:00:00Z
 ```
 
-**Utile pour :**
-- Traitement incrémental
-- Mise à jour de projections
-- Synchronisation de systèmes
+**Useful for:**
+- Incremental processing
+- Updating projections
+- System synchronization
 
-## Test avec cURL
+## Testing with cURL
 
-### Créer un utilisateur
+### Create a User
 
 ```bash
 curl -X POST https://localhost:5001/api/users \
@@ -208,13 +208,13 @@ curl -X POST https://localhost:5001/api/users \
   }'
 ```
 
-### Obtenir un utilisateur
+### Get a User
 
 ```bash
 curl https://localhost:5001/api/users/{user-id}
 ```
 
-### Modifier le nom
+### Update Name
 
 ```bash
 curl -X PUT https://localhost:5001/api/users/{user-id}/name \
@@ -225,139 +225,139 @@ curl -X PUT https://localhost:5001/api/users/{user-id}/name \
   }'
 ```
 
-## Vérifier les événements dans MongoDB
+## Verify Events in MongoDB
 
 ```bash
-# Se connecter à MongoDB
+# Connect to MongoDB
 docker exec -it eventsourcing-mongodb mongosh
 
-# Utiliser la base de données
+# Use the database
 use EventSourcingExample
 
-# Voir tous les événements d'un utilisateur
+# View all user events
 db.useraggregate_events.find().pretty()
 
-# Voir les snapshots
+# View snapshots
 db.useraggregate_snapshots.find().pretty()
 ```
 
-## Structure du projet
+## Project Structure
 
 ```
 EventSourcing.Example.Api/
 ├── Controllers/
-│   └── UsersController.cs      # Endpoints API REST
+│   └── UsersController.cs      # REST API endpoints
 ├── Domain/
-│   ├── UserAggregate.cs        # Agrégat avec logique métier
-│   └── Events/                 # Événements du domaine
+│   ├── UserAggregate.cs        # Aggregate with business logic
+│   └── Events/                 # Domain events
 │       ├── UserCreatedEvent.cs
 │       ├── UserNameChangedEvent.cs
 │       ├── UserEmailChangedEvent.cs
 │       ├── UserActivatedEvent.cs
 │       └── UserDeactivatedEvent.cs
-├── Models/                     # DTOs pour les requêtes/réponses
+├── Models/                     # DTOs for requests/responses
 │   ├── CreateUserRequest.cs
 │   ├── UpdateUserNameRequest.cs
 │   ├── UpdateUserEmailRequest.cs
 │   ├── DeactivateUserRequest.cs
 │   └── UserResponse.cs
-└── Program.cs                  # Configuration Event Sourcing
+└── Program.cs                  # Event Sourcing configuration
 ```
 
-## Concepts Event Sourcing démontrés
+## Event Sourcing Concepts Demonstrated
 
-### 1. **Agrégat**
-L'agrégat `UserAggregate` encapsule la logique métier et maintient la cohérence.
+### 1. **Aggregate**
+The `UserAggregate` encapsulates business logic and maintains consistency.
 
-### 2. **Événements**
-Chaque action génère un événement immutable stocké dans MongoDB :
-- Collection : `useraggregate_events`
-- Les événements ne sont jamais modifiés ou supprimés
+### 2. **Events**
+Each action generates an immutable event stored in MongoDB:
+- Collection: `useraggregate_events`
+- Events are never modified or deleted
 
-### 3. **Reconstruction d'état**
-L'état actuel est reconstruit en rejouant tous les événements depuis le début (ou depuis le dernier snapshot).
+### 3. **State Reconstruction**
+The current state is reconstructed by replaying all events from the beginning (or from the last snapshot).
 
 ### 4. **Snapshots**
-Pour optimiser les performances, un snapshot est créé tous les 10 événements (configurable dans `Program.cs`).
+For performance optimization, a snapshot is created every 10 events (configurable in `Program.cs`).
 
-### 5. **Concurrence optimiste**
-Le numéro de version de l'agrégat empêche les conflits de concurrence.
+### 5. **Optimistic Concurrency**
+The aggregate version number prevents concurrency conflicts.
 
-## Configuration avancée
+## Advanced Configuration
 
-### Modifier la fréquence des snapshots
+### Modify Snapshot Frequency
 
-Dans `Program.cs`:
+In `Program.cs`:
 
 ```csharp
-// Snapshot tous les 5 événements
+// Snapshot every 5 events
 config.SnapshotEvery(5);
 
-// Ou snapshot basé sur le temps (toutes les 5 minutes)
+// Or time-based snapshot (every 5 minutes)
 config.SnapshotEvery(TimeSpan.FromMinutes(5));
 
-// Ou stratégie personnalisée
+// Or custom strategy
 config.SnapshotWhen((aggregate, eventCount, lastSnapshot) => {
     return eventCount >= 20 ||
            (lastSnapshot.HasValue && DateTime.UtcNow - lastSnapshot.Value > TimeSpan.FromHours(1));
 });
 ```
 
-### Ajouter des projections
+### Add Projections
 
-Les projections permettent de créer des vues optimisées pour les lectures (CQRS).
+Projections allow you to create optimized views for reads (CQRS).
 
 ```csharp
-// Dans Program.cs
+// In Program.cs
 config.AddProjection<UserListProjection>();
 ```
 
-### Ajouter un publisher externe
+### Add External Publisher
 
-Pour publier les événements vers un message broker (RabbitMQ, Kafka, etc.):
+To publish events to a message broker (RabbitMQ, Kafka, etc.):
 
 ```csharp
-// Dans Program.cs
+// In Program.cs
 config.AddEventPublisher<RabbitMQPublisher>();
 ```
 
-## Arrêter l'environnement
+## Stop the Environment
 
 ```bash
-# Arrêter MongoDB
+# Stop MongoDB
 docker-compose down
 
-# Supprimer les données (attention : perte de données !)
+# Remove data (warning: data loss!)
 docker-compose down -v
 ```
 
 ## Troubleshooting
 
-### Erreur de connexion MongoDB
+### MongoDB Connection Error
 
-Vérifiez que MongoDB est bien démarré :
+Verify that MongoDB is running:
 ```bash
 docker ps
 ```
 
-Vous devriez voir un conteneur `eventsourcing-mongodb` en cours d'exécution.
+You should see an `eventsourcing-mongodb` container running.
 
-### Port déjà utilisé
+### Port Already in Use
 
-Si le port 27017 est déjà utilisé, modifiez le `docker-compose.yml` :
+If port 27017 is already in use, modify `docker-compose.yml`:
 ```yaml
 ports:
-  - "27018:27017"  # Utiliser le port 27018 localement
+  - "27018:27017"  # Use port 27018 locally
 ```
 
-Et mettez à jour `appsettings.json` :
+And update `appsettings.json`:
 ```json
 "ConnectionStrings": {
   "MongoDB": "mongodb://localhost:27018"
 }
 ```
 
-## En savoir plus
+## Learn More
 
 - [Event Sourcing Pattern](https://martinfowler.com/eaaDev/EventSourcing.html)
 - [CQRS Pattern](https://martinfowler.com/bliki/CQRS.html)
