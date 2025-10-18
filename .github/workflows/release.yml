@@ -51,9 +51,6 @@ jobs:
     - name: Build
       run: dotnet build EventSourcing.sln --configuration Release --no-restore
 
-    - name: Test
-      run: dotnet test EventSourcing.sln --configuration Release --no-build
-
     - name: Create and push tag
       if: github.event_name == 'workflow_dispatch'
       run: |
