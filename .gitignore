@@ -88,3 +88,7 @@ appsettings.Local.json
 # MongoDB data (if running locally)
 data/
 mongo-data/
+
+# Environment variables
+.env
+.env.local

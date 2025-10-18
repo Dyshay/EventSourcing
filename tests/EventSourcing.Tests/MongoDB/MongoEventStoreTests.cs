@@ -18,7 +18,8 @@ public class MongoEventStoreTests : IAsyncLifetime
 
     public MongoEventStoreTests()
     {
-        var client = new MongoClient("mongodb://localhost:27017");
+        var connectionString = TestHelpers.MongoDbFixture.GetConnectionString();
+        var client = new MongoClient(connectionString);
         _database = client.GetDatabase(TestDatabaseName);
         _eventStore = new MongoEventStore(_database);
 

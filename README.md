@@ -706,7 +706,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 - **[Event Versioning & Upcasting](docs/EVENT_VERSIONING.md)** - Evolve event schemas over time with automatic transformations
 - **[Creating Custom Providers](docs/CUSTOM_PROVIDERS.md)** - Build your own storage provider for any database
-- **[Multi-Database Usage](docs/MULTI_DB_USAGE.md)** - Use different databases for different aggregates
+- **[Testing Guide](docs/TESTING.md)** - Running tests locally and in CI with MongoDB configuration
 - **[Release Process](.github/RELEASE.md)** - How to create and publish releases
 
 ### 📖 Core Documentation

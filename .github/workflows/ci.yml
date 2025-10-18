@@ -43,6 +43,9 @@ jobs:
 
     - name: Test
       run: dotnet test EventSourcing.sln --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"
+      env:
+        MONGODB_CONNECTION_STRING: mongodb://localhost:27017
+        CI: true
 
     - name: Publish test results
       uses: EnricoMi/publish-unit-test-result-action@v2

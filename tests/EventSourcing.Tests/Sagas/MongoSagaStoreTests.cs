@@ -17,10 +17,13 @@ public class MongoSagaStoreTests : IAsyncLifetime
 
     public MongoSagaStoreTests()
     {
-        // Configure MongoDB client with short timeout to fail fast if MongoDB is unavailable
-        var settings = MongoClientSettings.FromConnectionString("mongodb://localhost:27017");
-        settings.ServerSelectionTimeout = TimeSpan.FromSeconds(5);
-        settings.ConnectTimeout = TimeSpan.FromSeconds(5);
+        // Configure MongoDB client with connection string from environment or localhost
+        var connectionString = TestHelpers.MongoDbFixture.GetConnectionString();
+        var timeout = TestHelpers.MongoDbFixture.GetConnectionTimeout();
+
+        var settings = MongoClientSettings.FromConnectionString(connectionString);
+        settings.ServerSelectionTimeout = timeout;
+        settings.ConnectTimeout = timeout;
 
         var client = new MongoClient(settings);
         _database = client.GetDatabase(TestDatabaseName);

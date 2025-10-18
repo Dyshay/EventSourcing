@@ -37,7 +37,8 @@ public class MongoSnapshotStoreTests : IAsyncLifetime
 
     public MongoSnapshotStoreTests()
     {
-        var client = new MongoClient("mongodb://localhost:27017");
+        var connectionString = TestHelpers.MongoDbFixture.GetConnectionString();
+        var client = new MongoClient(connectionString);
         _database = client.GetDatabase(TestDatabaseName);
         _snapshotStore = new MongoSnapshotStore(_database);
     }
