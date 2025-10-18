@@ -62,6 +62,8 @@ public class OrdersController : ControllerBase
         try
         {
             var orderId = Guid.NewGuid();
+
+            // Create aggregate (pure domain, no infrastructure dependencies)
             var order = new OrderAggregate();
 
             order.CreateOrder(orderId, request.CustomerId);
@@ -144,7 +146,12 @@ public class OrdersController : ControllerBase
         try
         {
             var order = await _repository.GetByIdAsync(id);
+
+            // Execute business logic (pure domain)
+            // State machine validates + emits StateTransitionEvent
             order.Ship(request.ShippingAddress, request.TrackingNumber);
+
+            // Save (publishes events via IEventBus → MediatREventPublisher)
             await _repository.SaveAsync(order);
 
             _logger.LogInformation("Order {OrderId} shipped to {Address}", id, request.ShippingAddress);
@@ -178,7 +185,12 @@ public class OrdersController : ControllerBase
         try
         {
             var order = await _repository.GetByIdAsync(id);
+
+            // Execute business logic (pure domain)
+            // State machine validates + emits StateTransitionEvent
             order.Cancel(request.Reason);
+
+            // Save (publishes events via IEventBus → MediatREventPublisher)
             await _repository.SaveAsync(order);
 
             _logger.LogInformation("Order {OrderId} cancelled: {Reason}", id, request.Reason);

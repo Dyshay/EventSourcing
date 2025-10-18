@@ -1,0 +1,210 @@
+### State Machine Demo
+### This file demonstrates how the state machine validates transitions in the OrderAggregate
+
+@baseUrl = http://localhost:5000
+@orderId = {{$guid}}
+
+###############################################################################
+# 1. Create a new order (State: Pending)
+###############################################################################
+# POST /api/orders
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "customerId": "{{$guid}}"
+}
+
+> {%
+  client.global.set("orderId", response.body.id);
+  client.log("Order created with ID: " + response.body.id);
+  client.log("Current status: " + response.body.status);
+%}
+
+###############################################################################
+# 2. Add items to the order (still Pending)
+###############################################################################
+# POST /api/orders/{{orderId}}/items
+POST {{baseUrl}}/api/orders/{{orderId}}/items
+Content-Type: application/json
+
+{
+  "productName": "MacBook Pro",
+  "quantity": 1,
+  "unitPrice": 2499.99
+}
+
+###############################################################################
+# 3. Ship the order (Pending → Shipped) ✅ ALLOWED
+###############################################################################
+# POST /api/orders/{{orderId}}/ship
+# State machine validates: Pending → Shipped is ALLOWED
+# MediatR notification published: OrderShippedNotificationHandler reacts
+POST {{baseUrl}}/api/orders/{{orderId}}/ship
+Content-Type: application/json
+
+{
+  "shippingAddress": "123 Main St, New York, NY 10001",
+  "trackingNumber": "TRACK-123456789"
+}
+
+> {%
+  client.log("Order shipped. Current status: " + response.body.status);
+  client.log("Tracking: " + response.body.trackingNumber);
+%}
+
+###############################################################################
+# 4. Try to add item to shipped order ❌ WILL FAIL
+###############################################################################
+# POST /api/orders/{{orderId}}/items
+# This will fail because AddItem validates Status == Pending
+POST {{baseUrl}}/api/orders/{{orderId}}/items
+Content-Type: application/json
+
+{
+  "productName": "Mouse",
+  "quantity": 1,
+  "unitPrice": 29.99
+}
+
+> {%
+  client.test("Should fail - cannot add items to shipped order", function() {
+    client.assert(response.status === 400, "Expected BadRequest");
+  });
+%}
+
+###############################################################################
+# 5. Try to cancel shipped order ❌ WILL FAIL
+###############################################################################
+# POST /api/orders/{{orderId}}/cancel
+# State machine rejects: Shipped → Cancelled is NOT ALLOWED
+# Throws InvalidStateTransitionException
+POST {{baseUrl}}/api/orders/{{orderId}}/cancel
+Content-Type: application/json
+
+{
+  "reason": "Customer changed mind"
+}
+
+> {%
+  client.test("Should fail - cannot cancel shipped order", function() {
+    client.assert(response.status === 400, "Expected BadRequest");
+  });
+%}
+
+###############################################################################
+# 6. Get order events (audit trail)
+###############################################################################
+# GET /api/orders/{{orderId}}/events
+GET {{baseUrl}}/api/orders/{{orderId}}/events
+
+> {%
+  client.log("Event history:");
+  response.body.forEach(function(event) {
+    client.log("  - " + event.eventType + " (v" + event.version + ")");
+  });
+%}
+
+###############################################################################
+# DEMO 2: Cancel before shipping (allowed transition)
+###############################################################################
+
+# 1. Create another order
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "customerId": "{{$guid}}"
+}
+
+> {%
+  client.global.set("orderId2", response.body.id);
+%}
+
+###
+
+# 2. Add items
+POST {{baseUrl}}/api/orders/{{orderId2}}/items
+Content-Type: application/json
+
+{
+  "productName": "iPhone",
+  "quantity": 1,
+  "unitPrice": 999.99
+}
+
+###
+
+# 3. Cancel while still Pending (Pending → Cancelled) ✅ ALLOWED
+POST {{baseUrl}}/api/orders/{{orderId2}}/cancel
+Content-Type: application/json
+
+{
+  "reason": "Out of stock"
+}
+
+> {%
+  client.log("Order cancelled. Current status: " + response.body.status);
+  client.log("Reason: " + response.body.cancellationReason);
+%}
+
+###
+
+# 4. Try to ship cancelled order ❌ WILL FAIL
+# State machine rejects: Cancelled → Shipped is NOT ALLOWED
+POST {{baseUrl}}/api/orders/{{orderId2}}/ship
+Content-Type: application/json
+
+{
+  "shippingAddress": "456 Oak Ave",
+  "trackingNumber": "TRACK-999"
+}
+
+> {%
+  client.test("Should fail - cannot ship cancelled order", function() {
+    client.assert(response.status === 400, "Expected BadRequest");
+  });
+%}
+
+###############################################################################
+# State Machine Diagram
+###############################################################################
+#
+#          ┌─────────┐
+#          │ Pending │ (initial state)
+#          └────┬────┘
+#               │
+#      ┌────────┴────────┐
+#      │                 │
+#      ▼                 ▼
+# ┌─────────┐      ┌───────────┐
+# │ Shipped │      │ Cancelled │ (terminal states)
+# └─────────┘      └───────────┘
+#
+# Allowed transitions:
+# - Pending → Shipped   ✅
+# - Pending → Cancelled ✅
+# - Shipped → *         ❌ (terminal state)
+# - Cancelled → *       ❌ (terminal state)
+#
+###############################################################################
+# How it works:
+###############################################################################
+#
+# 1. OrderAggregate uses StateMachineWithMediatr<OrderStatus>
+#
+# 2. Configuration (in OrderAggregate constructor):
+#    _stateMachine.Allow(OrderStatus.Pending, OrderStatus.Shipped, OrderStatus.Cancelled);
+#
+# 3. In ShipAsync():
+#    - RaiseEvent(OrderShippedEvent)
+#    - await _stateMachine.TransitionToAsync(Shipped)  ← validates + publishes notification
+#
+# 4. In Apply(OrderShippedEvent):  (during replay)
+#    - _stateMachine.SetState(Shipped)  ← no validation, trusts event history
+#
+# 5. MediatR Notifications:
+#    - OrderShippedNotificationHandler receives StateTransitionNotification<OrderStatus>
+#    - Can send emails, update tracking systems, log analytics, etc.
+#
+###############################################################################

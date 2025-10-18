@@ -1,47 +1,26 @@
 # Event Sourcing for .NET
 
 [![CI Build and Test](https://github.com/Dyshay/EventSourcing/actions/workflows/ci.yml/badge.svg)](https://github.com/Dyshay/EventSourcing/actions/workflows/ci.yml)
-[![Code Coverage](https://github.com/Dyshay/EventSourcing/actions/workflows/code-coverage.yml/badge.svg)](https://github.com/Dyshay/EventSourcing/actions/workflows/code-coverage.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![.NET](https://img.shields.io/badge/.NET-9.0-blue.svg)](https://dotnet.microsoft.com/download)
 
-A lightweight, production-ready event sourcing library for .NET 9+ with MongoDB backend. Build CQRS applications with confidence using battle-tested patterns and comprehensive test coverage.
-
-## Why Event Sourcing?
-
-Event sourcing captures **all changes to application state** as a sequence of immutable events, providing:
-
-- ✅ **Complete Audit Trail** - Every state change is recorded
-- ✅ **Time Travel** - Reconstruct state at any point in time
-- ✅ **Event Replay** - Rebuild read models from events
-- ✅ **Business Intelligence** - Rich event history for analytics
-- ✅ **CQRS Ready** - Natural fit for Command Query Responsibility Segregation
-
-## Features
-
-- 🚀 **Easy Integration** - Install NuGet package and configure in 3 lines
-- 📦 **MongoDB Optimized** - Native MongoDB support with proper indexing
-- 📸 **Smart Snapshots** - Configurable snapshots for performance optimization
-- 🏷️ **Event Kinds** - Auto-generated event categorization for filtering
-- 🔒 **Type Safe** - Strongly typed aggregates and events with C# records
-- ⚡ **Concurrency Control** - Built-in optimistic locking with versioning
-- 🔍 **Query API** - Rich event querying for projections and read models
-- 🔄 **Event Versioning** - Automatic upcasting for event schema evolution
-- 🔀 **Saga Pattern** - Long-running processes with automatic compensation
-- 🎯 **State Machines** - Built-in state machine for managing transitions
-- 📮 **MediatR Integration** - Full CQRS with commands, queries, and notifications
-- 🧩 **Extensible** - Provider pattern ready for SQL Server, PostgreSQL, etc.
-- ✅ **Production Ready** - 184+ tests with continuous integration
-
-## Installation
+Production-ready event sourcing library for .NET 9+ with MongoDB. Build CQRS applications with **state machines**, **MediatR integration**, and **automatic event versioning**.
 
 ```bash
 dotnet add package EventSourcing.MongoDB
 ```
 
-## Quick Start
+## Why Use This?
 
-### 1. Configure Services
+✅ **Complete audit trail** - Every change recorded as immutable events
+✅ **Time travel** - Reconstruct state at any point in history
+✅ **CQRS ready** - Commands, queries, and reactive workflows
+✅ **State machines** - Validate transitions with built-in state machine
+✅ **Production ready** - 184+ tests, CI/CD, clean architecture
+
+## Quick Start (3 steps)
+
+### 1. Configure
 
 ```csharp
 using EventSourcing.MongoDB;
@@ -52,548 +31,367 @@ builder.Services.AddEventSourcing(config =>
 {
     config.UseMongoDB("mongodb://localhost:27017", "eventstore")
           .RegisterEventsFromAssembly(typeof(Program).Assembly)
-          .InitializeMongoDB("UserAggregate", "OrderAggregate");
+          .InitializeMongoDB("OrderAggregate");
 
-    config.SnapshotEvery(10); // Snapshot every 10 events
+    config.SnapshotEvery(10); // Performance optimization
 });
-
-var app = builder.Build();
-app.Run();
 ```
 
-### 2. Define Events
-
-Events are immutable records that represent state changes:
+### 2. Define Events & Aggregate
 
 ```csharp
 using EventSourcing.Core;
 
-// User events
-public record UserCreatedEvent(Guid UserId, string Email, string Name) : DomainEvent;
-public record UserEmailChangedEvent(string NewEmail) : DomainEvent;
+// Events (past tense, immutable)
+public record OrderCreatedEvent(Guid OrderId, Guid CustomerId) : DomainEvent;
+public record OrderShippedEvent(string Address, string Tracking) : DomainEvent;
 
-// Order events
-public record OrderPlacedEvent(Guid OrderId, Guid CustomerId, decimal Total) : DomainEvent;
-public record OrderShippedEvent(string TrackingNumber) : DomainEvent;
-```
-
-**Event Kinds** are auto-generated: `user.created`, `user.emailchanged`, `order.placed`, etc.
-
-### 3. Create Aggregates
-
-Aggregates maintain state and enforce business rules:
-
-```csharp
-using EventSourcing.Core;
-
-public class UserAggregate : AggregateBase<Guid>
+// Aggregate (business logic + state)
+public class OrderAggregate : AggregateBase<Guid>
 {
     public override Guid Id { get; protected set; }
-    public string Email { get; protected set; } = string.Empty;
-    public string Name { get; protected set; } = string.Empty;
+    public Guid CustomerId { get; protected set; }
+    public OrderStatus Status { get; protected set; } = OrderStatus.Pending;
 
-    public void CreateUser(Guid userId, string email, string name)
+    public void CreateOrder(Guid orderId, Guid customerId)
     {
         if (Id != Guid.Empty)
-            throw new InvalidOperationException("User already exists");
+            throw new InvalidOperationException("Order already exists");
 
-        if (string.IsNullOrWhiteSpace(email))
-            throw new ArgumentException("Email is required", nameof(email));
-
-        RaiseEvent(new UserCreatedEvent(userId, email, name));
+        RaiseEvent(new OrderCreatedEvent(orderId, customerId));
     }
 
-    public void ChangeEmail(string newEmail)
+    public void Ship(string address, string tracking)
     {
-        if (Email == newEmail) return; // No change
+        if (Status != OrderStatus.Pending)
+            throw new InvalidOperationException("Cannot ship non-pending order");
 
-        RaiseEvent(new UserEmailChangedEvent(newEmail));
+        RaiseEvent(new OrderShippedEvent(address, tracking));
     }
 
-    // Event handlers
-    private void Apply(UserCreatedEvent e)
+    // Event handlers (reconstruct state)
+    private void Apply(OrderCreatedEvent e)
     {
-        Id = e.UserId;
-        Email = e.Email;
-        Name = e.Name;
+        Id = e.OrderId;
+        CustomerId = e.CustomerId;
+        Status = OrderStatus.Pending;
     }
 
-    private void Apply(UserEmailChangedEvent e)
+    private void Apply(OrderShippedEvent e)
     {
-        Email = e.NewEmail;
+        Status = OrderStatus.Shipped;
     }
 }
+
+public enum OrderStatus { Pending, Shipped, Cancelled }
 ```
 
-### 4. Use in Controllers
+### 3. Use in Controller
 
 ```csharp
 [ApiController]
-[Route("api/[controller]")]
-public class UsersController : ControllerBase
+[Route("api/orders")]
+public class OrdersController : ControllerBase
 {
-    private readonly IAggregateRepository<UserAggregate, Guid> _repository;
+    private readonly IAggregateRepository<OrderAggregate, Guid> _repo;
 
-    public UsersController(IAggregateRepository<UserAggregate, Guid> repository)
-    {
-        _repository = repository;
-    }
+    public OrdersController(IAggregateRepository<OrderAggregate, Guid> repo) => _repo = repo;
 
     [HttpPost]
-    public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
+    public async Task<IActionResult> Create([FromBody] CreateOrderRequest req)
     {
-        var userId = Guid.NewGuid();
-        var user = new UserAggregate();
-        user.CreateUser(userId, request.Email, request.Name);
-
-        await _repository.SaveAsync(user);
-
-        return CreatedAtAction(nameof(GetUser), new { id = userId }, user);
+        var order = new OrderAggregate();
+        order.CreateOrder(Guid.NewGuid(), req.CustomerId);
+        await _repo.SaveAsync(order);
+        return Ok(order);
     }
 
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetUser(Guid id)
+    [HttpPost("{id}/ship")]
+    public async Task<IActionResult> Ship(Guid id, [FromBody] ShipRequest req)
     {
-        var user = await _repository.GetByIdAsync(id);
-        return Ok(user);
-    }
-
-    [HttpPut("{id}/email")]
-    public async Task<IActionResult> UpdateEmail(Guid id, [FromBody] UpdateEmailRequest request)
-    {
-        var user = await _repository.GetByIdAsync(id);
-        user.ChangeEmail(request.Email);
-        await _repository.SaveAsync(user);
-
-        return Ok(user);
+        var order = await _repo.GetByIdAsync(id);
+        order.Ship(req.Address, req.Tracking);
+        await _repo.SaveAsync(order);
+        return Ok();
     }
 }
 ```
 
-## Example Application
+**That's it!** You now have event sourcing with complete audit trail and time travel.
 
-The `EventSourcing.Example.Api` demonstrates a complete implementation with:
+---
 
-### **Two Aggregates**
-- **UserAggregate** - User management with email, name, activation
-- **OrderAggregate** - Order processing with items, shipping, payment
+## Common Use Cases
 
-### **Features**
-- ✅ REST API endpoints for both aggregates
-- ✅ Event history queries per aggregate
-- ✅ Global event queries with filtering
-- ✅ Event categorization by kind
-- ✅ Swagger/OpenAPI documentation
-- ✅ Comprehensive .http test files
+### Use Case 1: CQRS with MediatR
 
-### **Run the Example**
+**When:** You want to separate commands (write) from queries (read) with reactive workflows.
 
-```bash
-# Start MongoDB (Docker)
-docker run -d -p 27017:27017 mongo:7.0
+**Quick Start:** [MediatR Quick Start Guide](docs/MEDIATR_QUICKSTART.md)
 
-# Run the API
-cd examples/EventSourcing.Example.Api
-dotnet run
-```
-
-Visit `http://localhost:5147/swagger` to explore the API.
-
-### **Available Endpoints**
-
-**Users:**
-- `GET /api/users` - List all users
-- `GET /api/users/{id}` - Get user by ID
-- `POST /api/users` - Create user
-- `PUT /api/users/{id}/email` - Update email
-- `POST /api/users/{id}/activate` - Activate user
-- `GET /api/users/{id}/events` - Get user event history
-
-**Orders:**
-- `GET /api/orders` - List all orders
-- `GET /api/orders/{id}` - Get order by ID
-- `POST /api/orders` - Create order
-- `POST /api/orders/{id}/items` - Add items
-- `POST /api/orders/{id}/ship` - Ship order
-- `GET /api/orders/{id}/events` - Get order event history
-
-**Sagas:**
-- `POST /api/saga/orders` - Create and execute order processing saga
-- `GET /api/saga/{sagaId}` - Get saga status and details
-
-**Events (Users):**
-- `GET /api/events/users` - All user events
-- `GET /api/events/users/{userId}` - Events for specific user
-- `GET /api/events/users/kind/{kind}` - Filter by event kind (e.g., "user.created")
-- `GET /api/events/users/kinds?kinds={kinds}` - Filter by multiple kinds (comma-separated)
-- `GET /api/events/users/since?since={timestamp}` - Events since timestamp
-
-**Events (Orders):**
-- `GET /api/events/orders` - All order events
-- `GET /api/events/orders/{orderId}` - Events for specific order
-- `GET /api/events/orders/kind/{kind}` - Filter by event kind (e.g., "order.placed")
-- `GET /api/events/orders/kinds?kinds={kinds}` - Filter by multiple kinds (comma-separated)
-- `GET /api/events/orders/since?since={timestamp}` - Events since timestamp
-
-## Core Concepts
-
-### Event Sourcing Pattern
-
-Instead of storing just the current state, event sourcing stores **all state changes** as immutable events.
-
-```
-Traditional Storage:
-┌──────────────────────┐
-│   User Table         │
-├──────────────────────┤
-│ Id: 123              │
-│ Email: new@email.com │
-│ Name: John Doe       │
-└──────────────────────┘
-
-Event Sourcing:
-┌─────────────────────────────────────┐
-│ UserCreated(123, "john@email.com")  │
-│ EmailChanged("new@email.com")       │
-│ NameChanged("John Doe")             │
-└─────────────────────────────────────┘
-```
-
-**Benefits:**
-- Complete audit trail of all changes
-- Reconstruct state at any point in time
-- Event replay for debugging and testing
-- Build multiple read models from same events
-
-### Aggregates
-
-An aggregate is a cluster of domain objects treated as a single unit:
-
-- **Identity** - Unique identifier (Guid, int, string, custom type)
-- **Version** - Monotonic version number for optimistic concurrency
-- **Events** - Uncommitted domain events representing pending changes
-- **State** - Reconstructed by replaying all events
-
-### Snapshots
-
-Snapshots optimize performance by storing point-in-time state:
+**Example:**
 
 ```csharp
-config.SnapshotEvery(10); // Create snapshot every 10 events
-```
-
-**How it works:**
-1. When loading: Retrieve latest snapshot + subsequent events
-2. When saving: If `version % 10 == 0`, create snapshot
-3. State reconstruction: Apply snapshot → replay events since snapshot
-
-**Performance impact:**
-- Without snapshots: Replay 1000 events (slow)
-- With `SnapshotEvery(10)`: Replay max 10 events (fast)
-- With `SnapshotEvery(1)`: Replay 1 event (fastest reads, many writes)
-
-**Recommended:** `SnapshotEvery(10)` to `SnapshotEvery(50)` depending on complexity.
-
-### Optimistic Concurrency
-
-Version-based concurrency control prevents conflicts:
-
-```csharp
-// Thread 1
-var user = await repo.GetByIdAsync(id); // Version = 5
-user.ChangeEmail("new@email.com");
-await repo.SaveAsync(user); // Version = 6 ✓
-
-// Thread 2 (concurrent modification)
-var user = await repo.GetByIdAsync(id); // Version = 5
-user.ChangeName("Alice");
-await repo.SaveAsync(user); // ❌ ConcurrencyException!
-```
-
-Handle with retry logic or conflict resolution strategies.
-
-### Sagas (Distributed Transactions)
-
-Sagas coordinate long-running business processes across multiple aggregates or services with automatic compensation on failure.
-
-**Configuration:**
-
-```csharp
+// 1. Add MediatR + Event Publisher
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
 builder.Services.AddEventSourcing(config =>
 {
-    config.UseMongoDB("mongodb://localhost:27017", "eventstore")
-          .EnableMongoDBSagas(); // Enable saga support with MongoDB storage
+    config.UseMongoDB(...)
+          .AddEventPublisher<MediatREventPublisher>(); // Bridge domain → MediatR
+});
 
-    // Or use in-memory storage (for testing)
-    // config.EnableSagas();
+// 2. Define Command
+public record ShipOrderCommand(Guid OrderId, string Address) : Command<CommandResult>;
+
+// 3. Create Handler
+public class ShipOrderHandler : IRequestHandler<ShipOrderCommand, CommandResult>
+{
+    private readonly IAggregateRepository<OrderAggregate, Guid> _repo;
+
+    public async Task<CommandResult> Handle(ShipOrderCommand cmd, CancellationToken ct)
+    {
+        var order = await _repo.GetByIdAsync(cmd.OrderId, ct);
+        order.Ship(cmd.Address, cmd.Tracking);
+        await _repo.SaveAsync(order, ct);
+        return new CommandResult(cmd.OrderId.ToString(), order.Version);
+    }
+}
+
+// 4. Use in Controller
+[HttpPost("{id}/ship")]
+public async Task<IActionResult> Ship(Guid id, ShipRequest req)
+{
+    var command = new ShipOrderCommand(id, req.Address);
+    var result = await _mediator.Send(command);
+    return Ok(result);
+}
+```
+
+**Benefits:** Separation of concerns, testable handlers, reactive workflows.
+
+**Full Guide:** [MediatR Integration](docs/MEDIATR_INTEGRATION.md) | [Architecture](docs/ARCHITECTURE.md)
+
+---
+
+### Use Case 2: State Machines for Validation
+
+**When:** You need to enforce valid state transitions (e.g., can't ship a cancelled order).
+
+**Quick Start:** [State Machine Guide](docs/STATE_MACHINES.md)
+
+**Example:**
+
+```csharp
+using EventSourcing.Core.StateMachine;
+
+public class OrderAggregate : AggregateBase<Guid>
+{
+    private readonly StateMachineWithEvents<OrderStatus> _stateMachine;
+
+    public OrderAggregate()
+    {
+        _stateMachine = new StateMachineWithEvents<OrderStatus>(
+            initialState: OrderStatus.Pending,
+            aggregateType: nameof(OrderAggregate),
+            getAggregateId: () => Id.ToString(),
+            onTransition: (evt) => RaiseEvent(evt) // Emit state transition events
+        );
+
+        // Define allowed transitions
+        _stateMachine.Allow(OrderStatus.Pending, OrderStatus.Shipped, OrderStatus.Cancelled);
+    }
+
+    public void Ship(string address, string tracking)
+    {
+        RaiseEvent(new OrderShippedEvent(address, tracking));
+
+        // Validates transition Pending → Shipped
+        // Throws InvalidStateTransitionException if not allowed
+        _stateMachine.TransitionToWithEvent(OrderStatus.Shipped);
+    }
+
+    private void Apply(OrderShippedEvent e)
+    {
+        // SetState = no validation (replay events, trust history)
+        _stateMachine.SetState(OrderStatus.Shipped);
+    }
+}
+```
+
+**Benefits:** Invalid transitions blocked, clean domain model, automatic state transition events.
+
+**Full Guide:** [State Machines Documentation](docs/STATE_MACHINES.md)
+
+---
+
+### Use Case 3: Event Versioning & Schema Evolution
+
+**When:** You need to change event structure over time without breaking existing data.
+
+**Example:**
+
+```csharp
+// Version 1 (old)
+public record UserCreatedEvent(Guid UserId, string Email) : DomainEvent;
+
+// Version 2 (new - added Name field)
+public record UserCreatedEventV2(Guid UserId, string Email, string Name) : DomainEvent;
+
+// Upcaster: Transform V1 → V2 automatically
+public class UserCreatedEventUpcaster : IEventUpcaster
+{
+    public Type SourceType => typeof(UserCreatedEvent);
+    public Type TargetType => typeof(UserCreatedEventV2);
+
+    public object Upcast(object sourceEvent)
+    {
+        var e = (UserCreatedEvent)sourceEvent;
+        return new UserCreatedEventV2(e.UserId, e.Email, Name: "Unknown");
+    }
+}
+
+// Register
+builder.Services.AddEventSourcing(config =>
+{
+    config.RegisterUpcaster<UserCreatedEventUpcaster>();
 });
 ```
 
-**Defining a Saga:**
+**Benefits:** Evolve events without migrations, backward compatibility, zero downtime.
+
+**Full Guide:** [Event Versioning & Upcasting](docs/EVENT_VERSIONING.md)
+
+---
+
+### Use Case 4: Distributed Workflows (Sagas)
+
+**When:** You need to coordinate multi-step processes with automatic rollback on failure.
+
+**Example:**
 
 ```csharp
-// 1. Define saga data context
-public class OrderData
+// 1. Define saga data
+public class OrderProcessingData
 {
     public Guid OrderId { get; set; }
-    public decimal TotalAmount { get; set; }
-    public string? PaymentTransactionId { get; set; }
-    public string? ReservationId { get; set; }
+    public string? PaymentId { get; set; }
 }
 
-// 2. Create saga steps with compensation logic
-public class ReserveInventoryStep : SagaStepBase<OrderData>
+// 2. Create steps with compensation
+public class ProcessPaymentStep : SagaStepBase<OrderProcessingData>
 {
-    public override string Name => "ReserveInventory";
-
-    public override async Task<bool> ExecuteAsync(OrderData data, CancellationToken ct)
+    public override async Task<bool> ExecuteAsync(OrderProcessingData data, CancellationToken ct)
     {
-        // Reserve inventory
-        data.ReservationId = await _inventoryService.ReserveAsync(data.OrderId);
+        data.PaymentId = await _paymentService.ChargeAsync(data.OrderId);
         return true;
     }
 
-    public override async Task<bool> CompensateAsync(OrderData data, CancellationToken ct)
+    public override async Task<bool> CompensateAsync(OrderProcessingData data, CancellationToken ct)
     {
-        // Release reservation on failure
-        await _inventoryService.ReleaseAsync(data.ReservationId);
+        await _paymentService.RefundAsync(data.PaymentId); // Rollback
         return true;
     }
 }
 
-public class ProcessPaymentStep : SagaStepBase<OrderData>
-{
-    public override string Name => "ProcessPayment";
-
-    public override async Task<bool> ExecuteAsync(OrderData data, CancellationToken ct)
-    {
-        // Process payment
-        data.PaymentTransactionId = await _paymentService.ChargeAsync(data.TotalAmount);
-        return true;
-    }
-
-    public override async Task<bool> CompensateAsync(OrderData data, CancellationToken ct)
-    {
-        // Refund on failure
-        await _paymentService.RefundAsync(data.PaymentTransactionId);
-        return true;
-    }
-}
-
-// 3. Execute the saga
-var orderData = new OrderData { OrderId = Guid.NewGuid(), TotalAmount = 99.99m };
-
-var saga = new Saga<OrderData>("OrderProcessing", orderData)
+// 3. Execute saga
+var data = new OrderProcessingData { OrderId = orderId };
+var saga = new Saga<OrderProcessingData>("OrderProcessing", data)
     .AddSteps(
-        new ValidateOrderStep(),
         new ReserveInventoryStep(),
         new ProcessPaymentStep(),
-        new ConfirmOrderStep()
+        new ShipOrderStep()
     );
 
 var result = await _sagaOrchestrator.ExecuteAsync(saga);
 
-if (result.Status == SagaStatus.Completed)
-{
-    // Success!
-}
-else if (result.Status == SagaStatus.Compensated)
-{
-    // Failed and rolled back successfully
-}
+if (result.Status == SagaStatus.Completed) { /* Success */ }
+else if (result.Status == SagaStatus.Compensated) { /* Failed + rolled back */ }
 ```
 
-**How it works:**
+**Benefits:** Reliable distributed transactions, automatic compensation, persistence.
 
-1. **Forward Execution** - Steps execute in order
-2. **Automatic Compensation** - On failure, completed steps compensate in reverse order
-3. **Persistence** - Saga state is persisted for reliability
-4. **Idempotency** - Steps should be idempotent for safe retries
+**Full Example:** `examples/EventSourcing.Example.Api/Controllers/SagaController.cs`
 
-**Saga Status:**
-- `NotStarted` - Saga hasn't started
-- `Running` - Currently executing
-- `Completed` - All steps succeeded
-- `Compensating` - Rolling back
-- `Compensated` - Successfully rolled back
-- `CompensationFailed` - Rollback failed (requires manual intervention)
+---
 
-See `examples/EventSourcing.Example.Api/Controllers/SagaController.cs` for a complete example.
+## Documentation
 
-## Event Queries for CQRS
+### 📘 Quick Starts
+- **[MediatR Quick Start](docs/MEDIATR_QUICKSTART.md)** - CQRS in 5 minutes
+- **[State Machines](docs/STATE_MACHINES.md)** - Manage state transitions
+- **This README** - Core concepts
 
-Build optimized read models using event queries:
+### 📚 In-Depth Guides
+- **[MediatR Integration](docs/MEDIATR_INTEGRATION.md)** - Commands, queries, notifications (300+ lines)
+- **[Architecture Overview](docs/ARCHITECTURE.md)** - Complete system architecture
+- **[Event Versioning](docs/EVENT_VERSIONING.md)** - Schema evolution strategies
+- **[Custom Providers](docs/CUSTOM_PROVIDERS.md)** - Build SQL Server/PostgreSQL providers
+
+### 🛠️ Operations
+- **[Testing Guide](docs/TESTING.md)** - Run tests locally and in CI
+- **[GitHub Secrets](docs/GITHUB_SECRETS.md)** - Configure CI/CD
+
+### 📦 Example Application
+`examples/EventSourcing.Example.Api/` - Complete REST API with:
+- User & Order aggregates
+- State machines
+- MediatR CQRS
+- Saga workflows
+- HTTP test files
+
+---
+
+## How It Works
+
+### Event Sourcing Pattern
+
+Instead of storing current state, store **all state changes** as events:
+
+```
+Traditional:                  Event Sourcing:
+┌───────────────────┐        ┌─────────────────────────┐
+│ Order Table       │        │ Events                  │
+├───────────────────┤        ├─────────────────────────┤
+│ Id: 123           │        │ 1. OrderCreated(123)    │
+│ Status: Shipped   │        │ 2. ItemAdded(...)       │
+│ Total: 99.99      │        │ 3. OrderShipped(...)    │
+└───────────────────┘        └─────────────────────────┘
+
+Current state =              Current state = replay all events
+one row                      (OrderCreated + ItemAdded + Shipped)
+```
+
+**Benefits:** Audit trail, time travel, event replay for debugging, build multiple read models.
+
+### Snapshots (Performance Optimization)
 
 ```csharp
-// Get all events for projection building
-var allEvents = await eventStore.GetAllEventsAsync("UserAggregate");
-
-// Incremental processing
-var recentEvents = await eventStore.GetAllEventsAsync(
-    "UserAggregate",
-    DateTimeOffset.UtcNow.AddHours(-1)
-);
-
-// Filter by event kind
-var createdEvents = await eventStore.GetEventsByKindAsync(
-    "UserAggregate",
-    "user.created"
-);
-
-// Multiple kinds
-var events = await eventStore.GetEventsByKindsAsync(
-    "UserAggregate",
-    new[] { "user.created", "user.emailchanged" }
-);
+config.SnapshotEvery(10); // Snapshot every 10 events
 ```
 
-### Building Projections
+**Without snapshots:** Replay 1000 events (slow)
+**With snapshots:** Load snapshot at event 990 + replay 10 events (fast)
 
-```csharp
-public class UserListProjection
-{
-    private readonly IEventStore _eventStore;
-    private readonly IMongoCollection<UserListItem> _collection;
-
-    public async Task RebuildAsync()
-    {
-        var events = await _eventStore.GetAllEventsAsync("UserAggregate");
-
-        foreach (var evt in events)
-        {
-            switch (evt)
-            {
-                case UserCreatedEvent e:
-                    await _collection.InsertOneAsync(new UserListItem
-                    {
-                        Id = e.UserId,
-                        Email = e.Email,
-                        Name = e.Name
-                    });
-                    break;
-
-                case UserEmailChangedEvent e:
-                    await _collection.UpdateOneAsync(
-                        u => u.Id == e.UserId,
-                        Builders<UserListItem>.Update.Set(u => u.Email, e.NewEmail)
-                    );
-                    break;
-            }
-        }
-    }
-}
-```
-
-## MongoDB Collections & Indexes
-
-For each aggregate type, two collections are created:
-
-```
-{aggregateType}_events      - Append-only event log
-{aggregateType}_snapshots   - Point-in-time state captures
-```
-
-**Example:**
-```
-useraggregate_events
-useraggregate_snapshots
-orderaggregate_events
-orderaggregate_snapshots
-```
-
-**Automatically created indexes:**
-
-Events:
-- `{ aggregateId: 1, version: 1 }` (unique) - Fast aggregate loading
-- `{ timestamp: 1 }` - Time-based queries
-- `{ kind: 1 }` - Event kind filtering
-
-Snapshots:
-- `{ aggregateId: 1, aggregateType: 1 }` (unique) - Fast snapshot retrieval
-
-## Testing
-
-The library includes 170+ tests with comprehensive coverage:
-
-```bash
-dotnet test
-```
-
-**Example tests:**
-
-```csharp
-[Fact]
-public void UserAggregate_CreateUser_ShouldRaiseEvent()
-{
-    // Arrange
-    var aggregate = new UserAggregate();
-    var userId = Guid.NewGuid();
-
-    // Act
-    aggregate.CreateUser(userId, "test@example.com", "Test User");
-
-    // Assert
-    aggregate.Id.Should().Be(userId);
-    aggregate.Email.Should().Be("test@example.com");
-    aggregate.GetUncommittedEvents().Should().HaveCount(1);
-}
-
-[Fact]
-public async Task Repository_ConcurrencyConflict_ShouldThrow()
-{
-    // Arrange
-    var user = new UserAggregate();
-    user.CreateUser(Guid.NewGuid(), "test@example.com", "Test");
-    await _repository.SaveAsync(user);
-
-    // Act - Concurrent modifications
-    var user1 = await _repository.GetByIdAsync(user.Id);
-    var user2 = await _repository.GetByIdAsync(user.Id);
-
-    user1.ChangeEmail("new1@example.com");
-    await _repository.SaveAsync(user1);
-
-    user2.ChangeEmail("new2@example.com");
-
-    // Assert
-    await Assert.ThrowsAsync<ConcurrencyException>(() =>
-        _repository.SaveAsync(user2)
-    );
-}
-```
+---
 
 ## Best Practices
 
-### ✅ DO: Name events in past tense
+### ✅ DO: Event names in past tense
 ```csharp
-public record UserCreatedEvent(...) : DomainEvent;
-public record OrderPlacedEvent(...) : DomainEvent;
+OrderCreatedEvent ✅     CreateOrderEvent ❌
+OrderShippedEvent ✅     ShipOrderEvent ❌
 ```
 
-### ❌ DON'T: Name events in imperative
+### ✅ DO: Small, focused events
 ```csharp
-public record CreateUserEvent(...) : DomainEvent; // Wrong!
+OrderShippedEvent(string address) ✅
+OrderUpdatedEvent(string? address, string? status, ...) ❌  // Kitchen sink
 ```
 
-### ✅ DO: Keep events small and focused
+### ✅ DO: Build read models for queries
 ```csharp
-public record UserEmailChangedEvent(string NewEmail) : DomainEvent;
-public record UserNameChangedEvent(string NewName) : DomainEvent;
-```
-
-### ❌ DON'T: Create kitchen-sink events
-```csharp
-public record UserUpdatedEvent(string? Name, string? Email, bool? Active) : DomainEvent; // Wrong!
-```
-
-### ✅ DO: Use snapshots wisely
-```csharp
-config.SnapshotEvery(10); // Good for most cases
-```
-
-### ❌ DON'T: Snapshot on every event
-```csharp
-config.SnapshotEvery(1); // Excessive write overhead!
+var users = await _userReadModel.GetActiveUsersAsync(); ✅
+var users = allAggregates.Where(u => u.IsActive); ❌  // Don't query aggregates
 ```
 
 ### ✅ DO: Handle concurrency with retries
@@ -602,99 +400,97 @@ for (int i = 0; i < 3; i++)
 {
     try
     {
-        var user = await _repo.GetByIdAsync(id);
-        user.ChangeEmail(newEmail);
-        await _repo.SaveAsync(user);
-        return;
+        var order = await _repo.GetByIdAsync(id);
+        order.Ship(address, tracking);
+        await _repo.SaveAsync(order);
+        break;
     }
     catch (ConcurrencyException) when (i < 2)
     {
-        await Task.Delay(100 * (i + 1));
+        await Task.Delay(100); // Retry with backoff
     }
 }
 ```
 
-### ✅ DO: Build projections for queries
+---
+
+## Testing
+
+```bash
+# Run all tests (184 tests)
+dotnet test
+
+# Run with coverage
+dotnet test /p:CollectCoverage=true
+```
+
+Example test:
+
 ```csharp
-// Good - Query optimized read model
-var users = await _userReadModel.GetActiveUsersAsync();
-```
-
-### ❌ DON'T: Load aggregates for queries
-```csharp
-// Bad - Loading all aggregates
-var allUsers = await _repo.GetAllAsync(); // No such method!
-var activeUsers = allUsers.Where(u => u.IsActive); // Wrong!
-```
-
-## Troubleshooting
-
-### "Event type not registered"
-
-**Error:**
-```
-System.InvalidOperationException: Event type 'UserCreatedEvent' is not registered.
-```
-
-**Solution:**
-```csharp
-builder.Services.AddEventSourcing(config =>
+[Fact]
+public async Task Repository_ConcurrentModification_ShouldThrowConcurrencyException()
 {
-    config.UseMongoDB(...)
-          .RegisterEventsFromAssembly(typeof(Program).Assembly);
-});
+    // Arrange
+    var order = new OrderAggregate();
+    order.CreateOrder(Guid.NewGuid(), Guid.NewGuid());
+    await _repo.SaveAsync(order);
+
+    // Act - Concurrent modifications
+    var order1 = await _repo.GetByIdAsync(order.Id);
+    var order2 = await _repo.GetByIdAsync(order.Id);
+
+    order1.Ship("Address 1", "TRACK1");
+    await _repo.SaveAsync(order1); // Version = 2
+
+    order2.Ship("Address 2", "TRACK2");
+
+    // Assert
+    await Assert.ThrowsAsync<ConcurrencyException>(() => _repo.SaveAsync(order2));
+}
 ```
 
-### "Concurrency conflicts are frequent"
+---
 
-**Solutions:**
-1. Implement retry logic
-2. Split large aggregates into smaller ones
-3. Use eventual consistency between aggregates
-4. Consider using sagas for long-running processes
+## MongoDB Setup
 
-### "Slow event replay"
+```bash
+# Start MongoDB (Docker)
+docker run -d -p 27017:27017 mongo:7.0
 
-**Solutions:**
-1. Increase snapshot frequency: `config.SnapshotEvery(5);`
-2. Verify indexes: Check MongoDB indexes are created
-3. Optimize event handlers: Remove heavy computations
+# Or use MongoDB Atlas (cloud)
+# connection string: mongodb+srv://...
+```
 
-## Performance
+**Collections created automatically:**
+```
+orderaggregate_events      - Append-only event log
+orderaggregate_snapshots   - Point-in-time snapshots
+```
 
-**Event Store Operations:**
-- Append events: **O(1)** - Very fast, append-only
-- Load aggregate: **O(log n)** - Fast with indexes + snapshots
-- Query all events: **O(n)** - Full collection scan (use projections!)
+**Indexes created automatically:**
+- Events: `{aggregateId, version}` (unique), `{timestamp}`, `{kind}`
+- Snapshots: `{aggregateId, aggregateType}` (unique)
 
-**Optimization Tips:**
-1. ✅ Use snapshots to reduce event replay
-2. ✅ Build read models for queries (CQRS)
+---
+
+## Performance Tips
+
+1. ✅ Use snapshots: `config.SnapshotEvery(10)`
+2. ✅ Build read models for queries (CQRS pattern)
 3. ✅ Call `InitializeMongoDB()` to ensure indexes
-4. ✅ Use connection pooling (automatic with MongoDB driver)
-5. ✅ Consider batch operations for bulk processing
+4. ✅ Use connection pooling (automatic)
+5. ✅ Handle concurrency with retries
 
-## CI/CD Integration
+---
 
-This project uses GitHub Actions for:
+## Support
 
-- ✅ **Continuous Integration** - Build and test on every push/PR
-- ✅ **Code Coverage** - Track test coverage with reports
-- ✅ **Automated Releases** - NuGet packages published on tags
+- **Documentation:** [docs/](docs/)
+- **Issues:** [GitHub Issues](https://github.com/Dyshay/EventSourcing/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/Dyshay/EventSourcing/discussions)
+- **Example:** `examples/EventSourcing.Example.Api/`
 
-See `.github/workflows/` for workflow configurations.
-
-## Roadmap
-
-- [ ] SQL Server provider
-- [ ] PostgreSQL provider
-- [x] Event versioning and upcasting ✅
-- [x] Saga pattern support ✅
-- [x] State Machine integration ✅
-- [x] MediatR CQRS support ✅
-- [ ] Built-in projection framework
-- [ ] Event subscriptions/notifications
-- [ ] Migration utilities
+---
 
 ## Contributing
 
@@ -704,36 +500,11 @@ Contributions welcome! Please:
 3. Add tests for new functionality
 4. Submit a pull request
 
+---
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
-
-## Documentation
-
-### 🚀 Getting Started
-
-- **[MediatR Quick Start](docs/MEDIATR_QUICKSTART.md)** - Get started with CQRS using MediatR in minutes
-- **[State Machines](docs/STATE_MACHINES.md)** - Build robust state machines for your aggregates
-- **This README** - Quick start and core concepts
-- **Example Application** - `examples/EventSourcing.Example.Api/`
-
-### 📚 Advanced Topics
-
-- **[MediatR Integration](docs/MEDIATR_INTEGRATION.md)** - Complete guide to Commands, Queries, and Notifications
-- **[Architecture Overview](docs/ARCHITECTURE.md)** - Comprehensive architecture documentation
-- **[Event Versioning & Upcasting](docs/EVENT_VERSIONING.md)** - Evolve event schemas over time with automatic transformations
-- **[Creating Custom Providers](docs/CUSTOM_PROVIDERS.md)** - Build your own storage provider for any database
-
-### 📖 API Documentation
-
-- **Swagger UI** - Available at `/swagger` when running the example
-- **REST API Examples** - See `examples/EventSourcing.Example.Api/README.md`
-
-## Support
-
-- **Issues**: [GitHub Issues](https://github.com/Dyshay/EventSourcing/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/Dyshay/EventSourcing/discussions)
-- **Example**: `examples/EventSourcing.Example.Api/`
 
 ---
 
