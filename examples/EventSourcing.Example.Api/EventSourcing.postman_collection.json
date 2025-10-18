@@ -1,0 +1,687 @@
+{
+	"info": {
+		"_postman_id": "event-sourcing-api",
+		"name": "Event Sourcing API",
+		"description": "Complete test collection for Event Sourcing API with MongoDB backend",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:5147",
+			"type": "string"
+		},
+		{
+			"key": "userId",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "User Management",
+			"item": [
+				{
+					"name": "Create User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('userId', response.id);",
+									"    pm.test('User created successfully', () => {",
+									"        pm.expect(response.id).to.be.a('string');",
+									"        pm.expect(response.name).to.eql('John Doe');",
+									"        pm.expect(response.email).to.eql('john.doe@example.com');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "users"]
+						}
+					}
+				},
+				{
+					"name": "Get User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', () => {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('User data is valid', () => {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response.id).to.be.a('string');",
+									"    pm.expect(response.name).to.be.a('string');",
+									"    pm.expect(response.email).to.be.a('string');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/users/{{userId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "users", "{{userId}}"]
+						}
+					}
+				},
+				{
+					"name": "Rename User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 204', () => {",
+									"    pm.response.to.have.status(204);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"newName\": \"John Doe Updated\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users/{{userId}}/rename",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "users", "{{userId}}", "rename"]
+						}
+					}
+				},
+				{
+					"name": "Change Email",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 204', () => {",
+									"    pm.response.to.have.status(204);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"newEmail\": \"john.updated@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users/{{userId}}/email",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "users", "{{userId}}", "email"]
+						}
+					}
+				},
+				{
+					"name": "Delete User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 204', () => {",
+									"    pm.response.to.have.status(204);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/users/{{userId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "users", "{{userId}}"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Event History",
+			"item": [
+				{
+					"name": "Get User Events",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', () => {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Events array is returned', () => {",
+									"    const response = pm.response.json();",
+									"    pm.expect(response).to.be.an('array');",
+									"});",
+									"",
+									"pm.test('Events have required fields', () => {",
+									"    const events = pm.response.json();",
+									"    if (events.length > 0) {",
+									"        const event = events[0];",
+									"        pm.expect(event).to.have.property('eventId');",
+									"        pm.expect(event).to.have.property('eventType');",
+									"        pm.expect(event).to.have.property('kind');",
+									"        pm.expect(event).to.have.property('timestamp');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/users/{{userId}}/events",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "users", "{{userId}}", "events"]
+						}
+					}
+				},
+				{
+					"name": "Get All User Events",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', () => {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test('Events returned', () => {",
+									"    const events = pm.response.json();",
+									"    pm.expect(events).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/events/users",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "events", "users"]
+						}
+					}
+				},
+				{
+					"name": "Get Events Since Timestamp",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/events/users/since?since=2024-01-01T00:00:00Z",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "events", "users", "since"],
+							"query": [
+								{
+									"key": "since",
+									"value": "2024-01-01T00:00:00Z"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Event Filtering",
+			"item": [
+				{
+					"name": "Get User Created Events",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('All events are user.created', () => {",
+									"    const events = pm.response.json();",
+									"    events.forEach(event => {",
+									"        pm.expect(event.kind).to.eql('user.created');",
+									"    });",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/events/users/kind/user.created",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "events", "users", "kind", "user.created"]
+						}
+					}
+				},
+				{
+					"name": "Get User Renamed Events",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/events/users/kind/user.renamed",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "events", "users", "kind", "user.renamed"]
+						}
+					}
+				},
+				{
+					"name": "Get Multiple Event Kinds",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Events match requested kinds', () => {",
+									"    const events = pm.response.json();",
+									"    events.forEach(event => {",
+									"        pm.expect(['user.created', 'user.renamed']).to.include(event.kind);",
+									"    });",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/events/users/kinds?kinds=user.created,user.renamed",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "events", "users", "kinds"],
+							"query": [
+								{
+									"key": "kinds",
+									"value": "user.created,user.renamed"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Validation Tests",
+			"item": [
+				{
+					"name": "Create User - Empty Name",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 400', () => {",
+									"    pm.response.to.have.status(400);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"\",\n  \"email\": \"test@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "users"]
+						}
+					}
+				},
+				{
+					"name": "Create User - Empty Email",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 400', () => {",
+									"    pm.response.to.have.status(400);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Test User\",\n  \"email\": \"\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "users"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Complete Lifecycle",
+			"item": [
+				{
+					"name": "1. Create User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.collectionVariables.set('lifecycleUserId', response.id);",
+									"    pm.test('User created', () => {",
+									"        pm.expect(response.name).to.eql('Lifecycle Test User');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Lifecycle Test User\",\n  \"email\": \"lifecycle@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "users"]
+						}
+					}
+				},
+				{
+					"name": "2. Get User",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/users/{{lifecycleUserId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "users", "{{lifecycleUserId}}"]
+						}
+					}
+				},
+				{
+					"name": "3. Rename User",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"newName\": \"Lifecycle Test User - Renamed\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users/{{lifecycleUserId}}/rename",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "users", "{{lifecycleUserId}}", "rename"]
+						}
+					}
+				},
+				{
+					"name": "4. Change Email",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"newEmail\": \"lifecycle.updated@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/users/{{lifecycleUserId}}/email",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "users", "{{lifecycleUserId}}", "email"]
+						}
+					}
+				},
+				{
+					"name": "5. Get Events (should have 3)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Should have 3 events', () => {",
+									"    const events = pm.response.json();",
+									"    pm.expect(events).to.have.lengthOf(3);",
+									"});",
+									"",
+									"pm.test('Events are in correct order', () => {",
+									"    const events = pm.response.json();",
+									"    pm.expect(events[0].kind).to.eql('user.created');",
+									"    pm.expect(events[1].kind).to.eql('user.renamed');",
+									"    pm.expect(events[2].kind).to.eql('user.emailchanged');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/users/{{lifecycleUserId}}/events",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "users", "{{lifecycleUserId}}", "events"]
+						}
+					}
+				},
+				{
+					"name": "6. Verify User State",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('User state reflects all changes', () => {",
+									"    const user = pm.response.json();",
+									"    pm.expect(user.name).to.eql('Lifecycle Test User - Renamed');",
+									"    pm.expect(user.email).to.eql('lifecycle.updated@example.com');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/users/{{lifecycleUserId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "users", "{{lifecycleUserId}}"]
+						}
+					}
+				},
+				{
+					"name": "7. Delete User",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/users/{{lifecycleUserId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "users", "{{lifecycleUserId}}"]
+						}
+					}
+				},
+				{
+					"name": "8. Verify Deletion (404)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('User is deleted (404)', () => {",
+									"    pm.response.to.have.status(404);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/users/{{lifecycleUserId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "users", "{{lifecycleUserId}}"]
+						}
+					}
+				}
+			]
+		}
+	]
+}

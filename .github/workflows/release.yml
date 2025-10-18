@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: Extract version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Restore dependencies
+      run: dotnet restore EventSourcing.sln
+
+    - name: Build
+      run: dotnet build EventSourcing.sln --configuration Release --no-restore
+
+    - name: Test
+      run: dotnet test EventSourcing.sln --configuration Release --no-build
+
+    - name: Pack NuGet packages
+      run: |
+        dotnet pack src/EventSourcing.Abstractions/EventSourcing.Abstractions.csproj --configuration Release --no-build --output ./packages -p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+        dotnet pack src/EventSourcing.Core/EventSourcing.Core.csproj --configuration Release --no-build --output ./packages -p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+        dotnet pack src/EventSourcing.MongoDB/EventSourcing.MongoDB.csproj --configuration Release --no-build --output ./packages -p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+
+    - name: Push to NuGet
+      run: dotnet nuget push ./packages/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ./packages/*.nupkg
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

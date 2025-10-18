@@ -1,0 +1,415 @@
+@baseUrl = http://localhost:5147
+@userId = f59a7e6e-9b48-449d-9fae-408da115902f
+
+###############################################################################
+# User Management - CRUD Operations
+###############################################################################
+
+### Create a new user
+# @name createUser
+POST {{baseUrl}}/api/users
+Content-Type: application/json
+
+{
+  "email": "john.doe@example.com",
+  "firstName": "John",
+  "lastName": "Doe"
+}
+
+### Get user by ID
+GET {{baseUrl}}/api/users/{{userId}}
+Accept: application/json
+
+### Update user name
+PUT {{baseUrl}}/api/users/{{userId}}/name
+Content-Type: application/json
+
+{
+  "firstName": "John",
+  "lastName": "Doe Updated"
+}
+
+### Update user email
+PUT {{baseUrl}}/api/users/{{userId}}/email
+Content-Type: application/json
+
+{
+  "email": "john.updated@example.com"
+}
+
+### Activate user
+POST {{baseUrl}}/api/users/{{userId}}/activate
+
+### Deactivate user
+POST {{baseUrl}}/api/users/{{userId}}/deactivate
+Content-Type: application/json
+
+{
+  "reason": "User requested account suspension"
+}
+
+###############################################################################
+# Event History - Per User
+###############################################################################
+
+### Get all events for a specific user
+GET {{baseUrl}}/api/users/{{userId}}/events
+Accept: application/json
+
+###############################################################################
+# Event Queries - Global
+###############################################################################
+
+### Get all events across all users
+GET {{baseUrl}}/api/events/users
+Accept: application/json
+
+### Get events since a specific timestamp
+GET {{baseUrl}}/api/events/users/since?since=2024-01-01T00:00:00Z
+Accept: application/json
+
+### Get events by kind - user.created
+GET {{baseUrl}}/api/events/users/kind/user.created
+Accept: application/json
+
+### Get events by kind - user.namechanged
+GET {{baseUrl}}/api/events/users/kind/user.namechanged
+Accept: application/json
+
+### Get events by kind - user.emailchanged
+GET {{baseUrl}}/api/events/users/kind/user.emailchanged
+Accept: application/json
+
+### Get events by kind - user.activated
+GET {{baseUrl}}/api/events/users/kind/user.activated
+Accept: application/json
+
+### Get events by kind - user.deactivated
+GET {{baseUrl}}/api/events/users/kind/user.deactivated
+Accept: application/json
+
+### Get events by multiple kinds
+GET {{baseUrl}}/api/events/users/kinds?kinds=user.created,user.namechanged
+Accept: application/json
+
+###############################################################################
+# Validation Tests
+###############################################################################
+
+### Create user with empty email (should fail)
+POST {{baseUrl}}/api/users
+Content-Type: application/json
+
+{
+  "email": "",
+  "firstName": "Test",
+  "lastName": "User"
+}
+
+### Create user with empty first name (should fail)
+POST {{baseUrl}}/api/users
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "firstName": "",
+  "lastName": "User"
+}
+
+### Create user with empty last name (should fail)
+POST {{baseUrl}}/api/users
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "firstName": "Test",
+  "lastName": ""
+}
+
+### Create user with invalid email format (should fail)
+POST {{baseUrl}}/api/users
+Content-Type: application/json
+
+{
+  "email": "not-an-email",
+  "firstName": "Test",
+  "lastName": "User"
+}
+
+### Get non-existent user (should return 404)
+GET {{baseUrl}}/api/users/00000000-0000-0000-0000-000000000000
+Accept: application/json
+
+### Update name with empty first name (should fail)
+PUT {{baseUrl}}/api/users/{{userId}}/name
+Content-Type: application/json
+
+{
+  "firstName": "",
+  "lastName": "Doe"
+}
+
+### Update email with empty value (should fail)
+PUT {{baseUrl}}/api/users/{{userId}}/email
+Content-Type: application/json
+
+{
+  "email": ""
+}
+
+### Deactivate without reason (should fail)
+POST {{baseUrl}}/api/users/{{userId}}/deactivate
+Content-Type: application/json
+
+{
+  "reason": ""
+}
+
+###############################################################################
+# Complete User Lifecycle Test
+###############################################################################
+
+### Step 1: Create a user
+# @name lifecycleUser
+POST {{baseUrl}}/api/users
+Content-Type: application/json
+
+{
+  "email": "lifecycle@example.com",
+  "firstName": "Lifecycle",
+  "lastName": "Test"
+}
+
+### Step 2: Get the created user (extract ID from previous response)
+@lifecycleUserId = {{lifecycleUser.response.body.$.id}}
+GET {{baseUrl}}/api/users/{{lifecycleUserId}}
+Accept: application/json
+
+### Step 3: Update user name
+PUT {{baseUrl}}/api/users/{{lifecycleUserId}}/name
+Content-Type: application/json
+
+{
+  "firstName": "Lifecycle",
+  "lastName": "Updated"
+}
+
+### Step 4: Change email
+PUT {{baseUrl}}/api/users/{{lifecycleUserId}}/email
+Content-Type: application/json
+
+{
+  "email": "lifecycle.updated@example.com"
+}
+
+### Step 5: Deactivate user
+POST {{baseUrl}}/api/users/{{lifecycleUserId}}/deactivate
+Content-Type: application/json
+
+{
+  "reason": "Testing lifecycle"
+}
+
+### Step 6: Get user events (should show: created, namechanged, emailchanged, deactivated)
+GET {{baseUrl}}/api/users/{{lifecycleUserId}}/events
+Accept: application/json
+
+### Step 7: Verify user state (should be inactive)
+GET {{baseUrl}}/api/users/{{lifecycleUserId}}
+Accept: application/json
+
+### Step 8: Reactivate user
+POST {{baseUrl}}/api/users/{{lifecycleUserId}}/activate
+
+### Step 9: Verify user is active again
+GET {{baseUrl}}/api/users/{{lifecycleUserId}}
+Accept: application/json
+
+### Step 10: Get final events (should have 5: created, namechanged, emailchanged, deactivated, activated)
+GET {{baseUrl}}/api/users/{{lifecycleUserId}}/events
+Accept: application/json
+
+###############################################################################
+# Bulk User Creation
+###############################################################################
+
+### Create user 1
+POST {{baseUrl}}/api/users
+Content-Type: application/json
+
+{
+  "email": "alice@example.com",
+  "firstName": "Alice",
+  "lastName": "Anderson"
+}
+
+###
+
+### Create user 2
+POST {{baseUrl}}/api/users
+Content-Type: application/json
+
+{
+  "email": "bob@example.com",
+  "firstName": "Bob",
+  "lastName": "Brown"
+}
+
+###
+
+### Create user 3
+POST {{baseUrl}}/api/users
+Content-Type: application/json
+
+{
+  "email": "charlie@example.com",
+  "firstName": "Charlie",
+  "lastName": "Chen"
+}
+
+###
+
+### Create user 4
+POST {{baseUrl}}/api/users
+Content-Type: application/json
+
+{
+  "email": "diana@example.com",
+  "firstName": "Diana",
+  "lastName": "Davis"
+}
+
+###
+
+### Create user 5
+POST {{baseUrl}}/api/users
+Content-Type: application/json
+
+{
+  "email": "emma@example.com",
+  "firstName": "Emma",
+  "lastName": "Evans"
+}
+
+###############################################################################
+# Event Sourcing Performance Test
+###############################################################################
+
+### Create user for performance test
+# @name perfUser
+POST {{baseUrl}}/api/users
+Content-Type: application/json
+
+{
+  "email": "perf@example.com",
+  "firstName": "Performance",
+  "lastName": "Test"
+}
+
+### Rapid update 1
+@perfUserId = {{perfUser.response.body.$.id}}
+PUT {{baseUrl}}/api/users/{{perfUserId}}/name
+Content-Type: application/json
+
+{
+  "firstName": "Perf",
+  "lastName": "V1"
+}
+
+### Rapid update 2
+PUT {{baseUrl}}/api/users/{{perfUserId}}/name
+Content-Type: application/json
+
+{
+  "firstName": "Perf",
+  "lastName": "V2"
+}
+
+### Rapid update 3
+PUT {{baseUrl}}/api/users/{{perfUserId}}/name
+Content-Type: application/json
+
+{
+  "firstName": "Perf",
+  "lastName": "V3"
+}
+
+### Rapid update 4
+PUT {{baseUrl}}/api/users/{{perfUserId}}/name
+Content-Type: application/json
+
+{
+  "firstName": "Perf",
+  "lastName": "V4"
+}
+
+### Rapid update 5
+PUT {{baseUrl}}/api/users/{{perfUserId}}/name
+Content-Type: application/json
+
+{
+  "firstName": "Perf",
+  "lastName": "V5"
+}
+
+### Check event count (should have 6 events: 1 created + 5 namechanged)
+GET {{baseUrl}}/api/users/{{perfUserId}}/events
+Accept: application/json
+
+### Verify final state
+GET {{baseUrl}}/api/users/{{perfUserId}}
+Accept: application/json
+
+###############################################################################
+# Activation/Deactivation Flow
+###############################################################################
+
+### Create user for activation testing
+# @name activationUser
+POST {{baseUrl}}/api/users
+Content-Type: application/json
+
+{
+  "email": "activation.test@example.com",
+  "firstName": "Activation",
+  "lastName": "Test"
+}
+
+### Deactivate with reason
+@activationUserId = {{activationUser.response.body.$.id}}
+POST {{baseUrl}}/api/users/{{activationUserId}}/deactivate
+Content-Type: application/json
+
+{
+  "reason": "Suspended for policy violation"
+}
+
+### Verify user is deactivated
+GET {{baseUrl}}/api/users/{{activationUserId}}
+Accept: application/json
+
+### Activate again
+POST {{baseUrl}}/api/users/{{activationUserId}}/activate
+
+### Deactivate with different reason
+POST {{baseUrl}}/api/users/{{activationUserId}}/deactivate
+Content-Type: application/json
+
+{
+  "reason": "User requested account closure"
+}
+
+### Get activation history
+GET {{baseUrl}}/api/users/{{activationUserId}}/events
+Accept: application/json
+
+###############################################################################
+# Swagger/OpenAPI Documentation
+###############################################################################
+
+### Get Swagger UI
+GET {{baseUrl}}/swagger/index.html
+
+### Get OpenAPI JSON
+GET {{baseUrl}}/swagger/v1/swagger.json
+Accept: application/json

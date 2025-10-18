@@ -1,0 +1,90 @@
+# .NET Core
+bin/
+obj/
+*.user
+*.suo
+*.userprefs
+*.cache
+*.swp
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio
+.vs/
+*.sln.docstates
+*.suo
+*.user
+*.userosscache
+*.sln.docstates.json
+
+# Rider
+.idea/
+*.sln.iml
+
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Test Coverage
+coverage/
+*.coverage
+*.coveragexml
+
+# NuGet Packages
+*.nupkg
+*.snupkg
+packages/
+.nuget/
+
+# Test Results
+TestResults/
+*.trx
+*.log
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Mono Auto Generated Files
+mono_crash.*
+
+# Windows image file caches
+Thumbs.db
+ehthumbs.db
+
+# Folder config file
+Desktop.ini
+
+# Recycle Bin used on file shares
+$RECYCLE.BIN/
+
+# Mac
+.DS_Store
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# Local development
+appsettings.Development.json
+appsettings.Local.json
+*.local.json
+
+# MongoDB data (if running locally)
+data/
+mongo-data/
