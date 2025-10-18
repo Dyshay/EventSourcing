@@ -332,8 +332,6 @@ var status = await _queryBus.SendAsync(query, cacheOptions);
 
 **Full Example:** See `examples/EventSourcing.Example.Api/` for complete working implementation
 
-**Performance Guide:** See [PERFORMANCE.md](PERFORMANCE.md) for detailed benchmarks and optimization strategies
-
 ---
 
 ### Use Case 2: CQRS with MediatR
