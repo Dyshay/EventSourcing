@@ -582,10 +582,23 @@ Contributions welcome! Please:
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
+## Documentation
+
+### 📚 Guides
+
+- **[Creating Custom Providers](docs/CUSTOM_PROVIDERS.md)** - Build your own storage provider for any database
+- **[Release Process](.github/RELEASE.md)** - How to create and publish releases
+
+### 📖 Core Documentation
+
+- **This README** - Quick start and core concepts
+- **Example Application** - `examples/EventSourcing.Example.Api/`
+- **API Documentation** - Swagger UI at `/swagger` when running the example
+
 ## Support
 
-- **Documentation**: This README
 - **Issues**: [GitHub Issues](https://github.com/Dyshay/EventSourcing/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/Dyshay/EventSourcing/discussions)
 - **Example**: `examples/EventSourcing.Example.Api/`
 
 ---
