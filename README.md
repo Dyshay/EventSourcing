@@ -28,8 +28,10 @@ Event sourcing captures **all changes to application state** as a sequence of im
 - 🔍 **Query API** - Rich event querying for projections and read models
 - 🔄 **Event Versioning** - Automatic upcasting for event schema evolution
 - 🔀 **Saga Pattern** - Long-running processes with automatic compensation
+- 🎯 **State Machines** - Built-in state machine for managing transitions
+- 📮 **MediatR Integration** - Full CQRS with commands, queries, and notifications
 - 🧩 **Extensible** - Provider pattern ready for SQL Server, PostgreSQL, etc.
-- ✅ **Production Ready** - 170+ tests with continuous integration
+- ✅ **Production Ready** - 184+ tests with continuous integration
 
 ## Installation
 
@@ -688,6 +690,8 @@ See `.github/workflows/` for workflow configurations.
 - [ ] PostgreSQL provider
 - [x] Event versioning and upcasting ✅
 - [x] Saga pattern support ✅
+- [x] State Machine integration ✅
+- [x] MediatR CQRS support ✅
 - [ ] Built-in projection framework
 - [ ] Event subscriptions/notifications
 - [ ] Migration utilities
@@ -706,19 +710,24 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Documentation
 
-### 📚 Guides
+### 🚀 Getting Started
 
-- **[Event Versioning & Upcasting](docs/EVENT_VERSIONING.md)** - Evolve event schemas over time with automatic transformations
-- **[Creating Custom Providers](docs/CUSTOM_PROVIDERS.md)** - Build your own storage provider for any database
-- **[Testing Guide](docs/TESTING.md)** - Running tests locally and in CI with MongoDB configuration
-- **[GitHub Secrets Configuration](docs/GITHUB_SECRETS.md)** - Configure MongoDB Atlas or remote database for CI/CD
-- **[Release Process](.github/RELEASE.md)** - How to create and publish releases
-
-### 📖 Core Documentation
-
+- **[MediatR Quick Start](docs/MEDIATR_QUICKSTART.md)** - Get started with CQRS using MediatR in minutes
+- **[State Machines](docs/STATE_MACHINES.md)** - Build robust state machines for your aggregates
 - **This README** - Quick start and core concepts
 - **Example Application** - `examples/EventSourcing.Example.Api/`
-- **API Documentation** - Swagger UI at `/swagger` when running the example
+
+### 📚 Advanced Topics
+
+- **[MediatR Integration](docs/MEDIATR_INTEGRATION.md)** - Complete guide to Commands, Queries, and Notifications
+- **[Architecture Overview](docs/ARCHITECTURE.md)** - Comprehensive architecture documentation
+- **[Event Versioning & Upcasting](docs/EVENT_VERSIONING.md)** - Evolve event schemas over time with automatic transformations
+- **[Creating Custom Providers](docs/CUSTOM_PROVIDERS.md)** - Build your own storage provider for any database
+
+### 📖 API Documentation
+
+- **Swagger UI** - Available at `/swagger` when running the example
+- **REST API Examples** - See `examples/EventSourcing.Example.Api/README.md`
 
 ## Support
 
