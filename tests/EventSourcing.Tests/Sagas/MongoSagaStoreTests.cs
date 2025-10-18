@@ -46,9 +46,11 @@ public class MongoSagaStoreTests : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
+        // Don't drop the entire database when using shared "test" database
+        // Just clean up the test collections
         try
         {
-            await _database.Client.DropDatabaseAsync(TestDatabaseName);
+            await _database.DropCollectionAsync("sagas");
         }
         catch
         {

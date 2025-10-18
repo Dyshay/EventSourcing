@@ -50,7 +50,18 @@ public class MongoSnapshotStoreTests : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        await _database.Client.DropDatabaseAsync(TestDatabaseName);
+        // Don't drop the entire database when using shared "test" database
+        // Just clean up the test collections
+        try
+        {
+            await _database.DropCollectionAsync("testaggregate_snapshots");
+            await _database.DropCollectionAsync("testaggregate1_snapshots");
+            await _database.DropCollectionAsync("testaggregate2_snapshots");
+        }
+        catch
+        {
+            // Ignore cleanup errors
+        }
     }
 
     [Fact]

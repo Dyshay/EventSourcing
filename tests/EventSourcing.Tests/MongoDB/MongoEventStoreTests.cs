@@ -35,7 +35,16 @@ public class MongoEventStoreTests : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        await _database.Client.DropDatabaseAsync(TestDatabaseName);
+        // Don't drop the entire database when using shared "test" database
+        // Just clean up the test collections
+        try
+        {
+            await _database.DropCollectionAsync("testaggregate_events");
+        }
+        catch
+        {
+            // Ignore cleanup errors
+        }
     }
 
     [Fact]
