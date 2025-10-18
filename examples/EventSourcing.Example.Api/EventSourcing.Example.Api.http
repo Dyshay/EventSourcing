@@ -1,5 +1,7 @@
 @baseUrl = http://localhost:5147
 @userId = 9906e267-3f6a-466f-adbe-88d7a9231a94
+@orderId = 00000000-0000-0000-0000-000000000000
+@customerId = 11111111-1111-1111-1111-111111111111
 
 ###############################################################################
 # User Management - CRUD Operations
@@ -405,6 +407,343 @@ Content-Type: application/json
 
 ### Get activation history
 GET {{baseUrl}}/api/users/{{activationUserId}}/events
+Accept: application/json
+
+###############################################################################
+# Order Management - CRUD Operations
+###############################################################################
+
+### Get all orders
+GET {{baseUrl}}/api/orders
+Accept: application/json
+
+### Create a new order
+# @name createOrder
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "customerId": "{{customerId}}"
+}
+
+### Get order by ID
+GET {{baseUrl}}/api/orders/{{orderId}}
+Accept: application/json
+
+### Add item to order
+POST {{baseUrl}}/api/orders/{{orderId}}/items
+Content-Type: application/json
+
+{
+  "productName": "Widget Pro",
+  "quantity": 2,
+  "unitPrice": 29.99
+}
+
+### Add second item to order
+POST {{baseUrl}}/api/orders/{{orderId}}/items
+Content-Type: application/json
+
+{
+  "productName": "Gadget Deluxe",
+  "quantity": 1,
+  "unitPrice": 149.99
+}
+
+### Ship order
+POST {{baseUrl}}/api/orders/{{orderId}}/ship
+Content-Type: application/json
+
+{
+  "shippingAddress": "123 Main St, Springfield, IL 62701",
+  "trackingNumber": "1Z999AA10123456784"
+}
+
+### Cancel order
+POST {{baseUrl}}/api/orders/{{orderId}}/cancel
+Content-Type: application/json
+
+{
+  "reason": "Customer requested cancellation"
+}
+
+### Get all events for a specific order
+GET {{baseUrl}}/api/orders/{{orderId}}/events
+Accept: application/json
+
+###############################################################################
+# Order Validation Tests
+###############################################################################
+
+### Create order with empty customer ID (should fail)
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "customerId": "00000000-0000-0000-0000-000000000000"
+}
+
+### Add item with empty product name (should fail)
+POST {{baseUrl}}/api/orders/{{orderId}}/items
+Content-Type: application/json
+
+{
+  "productName": "",
+  "quantity": 1,
+  "unitPrice": 10.00
+}
+
+### Add item with zero quantity (should fail)
+POST {{baseUrl}}/api/orders/{{orderId}}/items
+Content-Type: application/json
+
+{
+  "productName": "Test Product",
+  "quantity": 0,
+  "unitPrice": 10.00
+}
+
+### Add item with negative price (should fail)
+POST {{baseUrl}}/api/orders/{{orderId}}/items
+Content-Type: application/json
+
+{
+  "productName": "Test Product",
+  "quantity": 1,
+  "unitPrice": -10.00
+}
+
+### Ship order without shipping address (should fail)
+POST {{baseUrl}}/api/orders/{{orderId}}/ship
+Content-Type: application/json
+
+{
+  "shippingAddress": "",
+  "trackingNumber": "TRACK123"
+}
+
+### Ship order without tracking number (should fail)
+POST {{baseUrl}}/api/orders/{{orderId}}/ship
+Content-Type: application/json
+
+{
+  "shippingAddress": "123 Main St",
+  "trackingNumber": ""
+}
+
+### Cancel order without reason (should fail)
+POST {{baseUrl}}/api/orders/{{orderId}}/cancel
+Content-Type: application/json
+
+{
+  "reason": ""
+}
+
+### Get non-existent order (should return 404)
+GET {{baseUrl}}/api/orders/00000000-0000-0000-0000-000000000000
+Accept: application/json
+
+###############################################################################
+# Complete Order Lifecycle Test
+###############################################################################
+
+### Step 1: Create an order
+# @name lifecycleOrder
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "customerId": "22222222-2222-2222-2222-222222222222"
+}
+
+### Step 2: Get the created order
+@lifecycleOrderId = {{lifecycleOrder.response.body.$.id}}
+GET {{baseUrl}}/api/orders/{{lifecycleOrderId}}
+Accept: application/json
+
+### Step 3: Add first item
+POST {{baseUrl}}/api/orders/{{lifecycleOrderId}}/items
+Content-Type: application/json
+
+{
+  "productName": "Laptop",
+  "quantity": 1,
+  "unitPrice": 999.99
+}
+
+### Step 4: Add second item
+POST {{baseUrl}}/api/orders/{{lifecycleOrderId}}/items
+Content-Type: application/json
+
+{
+  "productName": "Mouse",
+  "quantity": 2,
+  "unitPrice": 29.99
+}
+
+### Step 5: Add third item
+POST {{baseUrl}}/api/orders/{{lifecycleOrderId}}/items
+Content-Type: application/json
+
+{
+  "productName": "Keyboard",
+  "quantity": 1,
+  "unitPrice": 79.99
+}
+
+### Step 6: Check order state (should have 3 items, total should be updated)
+GET {{baseUrl}}/api/orders/{{lifecycleOrderId}}
+Accept: application/json
+
+### Step 7: Ship the order
+POST {{baseUrl}}/api/orders/{{lifecycleOrderId}}/ship
+Content-Type: application/json
+
+{
+  "shippingAddress": "456 Oak Avenue, Chicago, IL 60614",
+  "trackingNumber": "1Z999AA10987654321"
+}
+
+### Step 8: Verify order is shipped
+GET {{baseUrl}}/api/orders/{{lifecycleOrderId}}
+Accept: application/json
+
+### Step 9: Try to add item to shipped order (should fail)
+POST {{baseUrl}}/api/orders/{{lifecycleOrderId}}/items
+Content-Type: application/json
+
+{
+  "productName": "USB Cable",
+  "quantity": 1,
+  "unitPrice": 9.99
+}
+
+### Step 10: Try to cancel shipped order (should fail)
+POST {{baseUrl}}/api/orders/{{lifecycleOrderId}}/cancel
+Content-Type: application/json
+
+{
+  "reason": "Changed my mind"
+}
+
+### Step 11: Get order events (should show: created, 3x itemadded, shipped)
+GET {{baseUrl}}/api/orders/{{lifecycleOrderId}}/events
+Accept: application/json
+
+###############################################################################
+# Order Cancellation Flow
+###############################################################################
+
+### Create order for cancellation test
+# @name cancelOrder
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "customerId": "33333333-3333-3333-3333-333333333333"
+}
+
+### Add items to order
+@cancelOrderId = {{cancelOrder.response.body.$.id}}
+POST {{baseUrl}}/api/orders/{{cancelOrderId}}/items
+Content-Type: application/json
+
+{
+  "productName": "Phone Case",
+  "quantity": 1,
+  "unitPrice": 19.99
+}
+
+### Cancel the order
+POST {{baseUrl}}/api/orders/{{cancelOrderId}}/cancel
+Content-Type: application/json
+
+{
+  "reason": "Customer found better price"
+}
+
+### Verify order is cancelled
+GET {{baseUrl}}/api/orders/{{cancelOrderId}}
+Accept: application/json
+
+### Try to ship cancelled order (should fail)
+POST {{baseUrl}}/api/orders/{{cancelOrderId}}/ship
+Content-Type: application/json
+
+{
+  "shippingAddress": "789 Elm St",
+  "trackingNumber": "TRACK789"
+}
+
+### Try to cancel already cancelled order (should be idempotent)
+POST {{baseUrl}}/api/orders/{{cancelOrderId}}/cancel
+Content-Type: application/json
+
+{
+  "reason": "Already cancelled"
+}
+
+### Get cancellation history
+GET {{baseUrl}}/api/orders/{{cancelOrderId}}/events
+Accept: application/json
+
+###############################################################################
+# Bulk Order Creation
+###############################################################################
+
+### Create order 1
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "customerId": "44444444-4444-4444-4444-444444444444"
+}
+
+###
+
+### Create order 2
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "customerId": "55555555-5555-5555-5555-555555555555"
+}
+
+###
+
+### Create order 3
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "customerId": "66666666-6666-6666-6666-666666666666"
+}
+
+###############################################################################
+# Order with No Items Test
+###############################################################################
+
+### Create order
+# @name emptyOrder
+POST {{baseUrl}}/api/orders
+Content-Type: application/json
+
+{
+  "customerId": "77777777-7777-7777-7777-777777777777"
+}
+
+### Try to ship order with no items (should fail)
+@emptyOrderId = {{emptyOrder.response.body.$.id}}
+POST {{baseUrl}}/api/orders/{{emptyOrderId}}/ship
+Content-Type: application/json
+
+{
+  "shippingAddress": "999 Pine St",
+  "trackingNumber": "TRACK999"
+}
+
+### Verify order state (should still be pending with 0 items)
+GET {{baseUrl}}/api/orders/{{emptyOrderId}}
 Accept: application/json
 
 ###############################################################################

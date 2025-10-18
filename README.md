@@ -1,17 +1,33 @@
 # Event Sourcing for .NET
 
-A lightweight, MongoDB-backed event sourcing library for .NET 9+ that makes it easy to implement event sourcing patterns in your applications.
+[![CI Build and Test](https://github.com/Dyshay/EventSourcing/actions/workflows/ci.yml/badge.svg)](https://github.com/Dyshay/EventSourcing/actions/workflows/ci.yml)
+[![Code Coverage](https://github.com/Dyshay/EventSourcing/actions/workflows/code-coverage.yml/badge.svg)](https://github.com/Dyshay/EventSourcing/actions/workflows/code-coverage.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![.NET](https://img.shields.io/badge/.NET-9.0-blue.svg)](https://dotnet.microsoft.com/download)
+
+A lightweight, production-ready event sourcing library for .NET 9+ with MongoDB backend. Build CQRS applications with confidence using battle-tested patterns and comprehensive test coverage.
+
+## Why Event Sourcing?
+
+Event sourcing captures **all changes to application state** as a sequence of immutable events, providing:
+
+- ✅ **Complete Audit Trail** - Every state change is recorded
+- ✅ **Time Travel** - Reconstruct state at any point in time
+- ✅ **Event Replay** - Rebuild read models from events
+- ✅ **Business Intelligence** - Rich event history for analytics
+- ✅ **CQRS Ready** - Natural fit for Command Query Responsibility Segregation
 
 ## Features
 
-- **Easy Integration** - Simple NuGet package with minimal configuration
-- **MongoDB Native** - Optimized for MongoDB with proper indexing
-- **Snapshot Support** - Configurable snapshots to optimize performance
-- **Event Kinds** - Auto-generated event categorization for filtering
-- **Type Safe** - Strongly typed aggregates and events
-- **Concurrency Control** - Built-in optimistic concurrency with versioning
-- **CQRS Ready** - Query all events for building projections
-- **Extensible** - Provider pattern supports multiple databases
+- 🚀 **Easy Integration** - Install NuGet package and configure in 3 lines
+- 📦 **MongoDB Optimized** - Native MongoDB support with proper indexing
+- 📸 **Smart Snapshots** - Configurable snapshots for performance optimization
+- 🏷️ **Event Kinds** - Auto-generated event categorization for filtering
+- 🔒 **Type Safe** - Strongly typed aggregates and events with C# records
+- ⚡ **Concurrency Control** - Built-in optimistic locking with versioning
+- 🔍 **Query API** - Rich event querying for projections and read models
+- 🧩 **Extensible** - Provider pattern ready for SQL Server, PostgreSQL, etc.
+- ✅ **Production Ready** - 85+ tests with continuous integration
 
 ## Installation
 
@@ -28,14 +44,13 @@ using EventSourcing.MongoDB;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add event sourcing with MongoDB
 builder.Services.AddEventSourcing(config =>
 {
     config.UseMongoDB("mongodb://localhost:27017", "eventstore")
-          .RegisterEventsFromAssembly(typeof(Program).Assembly) // IMPORTANT: Register event types
-          .InitializeMongoDB("UserAggregate"); // Initialize indexes
+          .RegisterEventsFromAssembly(typeof(Program).Assembly)
+          .InitializeMongoDB("UserAggregate", "OrderAggregate");
 
-    config.SnapshotEvery(10); // Optional: snapshot every 10 events
+    config.SnapshotEvery(10); // Snapshot every 10 events
 });
 
 var app = builder.Build();
@@ -49,226 +64,250 @@ Events are immutable records that represent state changes:
 ```csharp
 using EventSourcing.Core;
 
-public record UserCreatedEvent(Guid UserId, string Name, string Email) : DomainEvent;
-
-public record UserRenamedEvent(string NewName) : DomainEvent;
-
+// User events
+public record UserCreatedEvent(Guid UserId, string Email, string Name) : DomainEvent;
 public record UserEmailChangedEvent(string NewEmail) : DomainEvent;
+
+// Order events
+public record OrderPlacedEvent(Guid OrderId, Guid CustomerId, decimal Total) : DomainEvent;
+public record OrderShippedEvent(string TrackingNumber) : DomainEvent;
 ```
 
-### 3. Create an Aggregate
+**Event Kinds** are auto-generated: `user.created`, `user.emailchanged`, `order.placed`, etc.
 
-Aggregates maintain state and apply events:
+### 3. Create Aggregates
+
+Aggregates maintain state and enforce business rules:
 
 ```csharp
 using EventSourcing.Core;
 
-public class UserAggregate : Aggregate<Guid>
+public class UserAggregate : AggregateBase<Guid>
 {
-    public string Name { get; private set; } = string.Empty;
-    public string Email { get; private set; } = string.Empty;
-    public bool IsActive { get; private set; }
+    public override Guid Id { get; protected set; }
+    public string Email { get; protected set; } = string.Empty;
+    public string Name { get; protected set; } = string.Empty;
 
-    // Required parameterless constructor
-    public UserAggregate() { }
-
-    // Factory method for creating new users
-    public static UserAggregate Create(Guid id, string name, string email)
+    public void CreateUser(Guid userId, string email, string name)
     {
-        var user = new UserAggregate();
-        user.RaiseDomainEvent(new UserCreatedEvent(id, name, email));
-        return user;
-    }
+        if (Id != Guid.Empty)
+            throw new InvalidOperationException("User already exists");
 
-    // Business methods
-    public void Rename(string newName)
-    {
-        if (string.IsNullOrWhiteSpace(newName))
-            throw new ArgumentException("Name cannot be empty", nameof(newName));
+        if (string.IsNullOrWhiteSpace(email))
+            throw new ArgumentException("Email is required", nameof(email));
 
-        RaiseDomainEvent(new UserRenamedEvent(newName));
+        RaiseEvent(new UserCreatedEvent(userId, email, name));
     }
 
     public void ChangeEmail(string newEmail)
     {
-        if (string.IsNullOrWhiteSpace(newEmail))
-            throw new ArgumentException("Email cannot be empty", nameof(newEmail));
+        if (Email == newEmail) return; // No change
 
-        RaiseDomainEvent(new UserEmailChangedEvent(newEmail));
+        RaiseEvent(new UserEmailChangedEvent(newEmail));
     }
 
-    // Event handlers - must be protected or public
-    protected override void When(object @event)
+    // Event handlers
+    private void Apply(UserCreatedEvent e)
     {
-        switch (@event)
-        {
-            case UserCreatedEvent e:
-                Id = e.UserId;
-                Name = e.Name;
-                Email = e.Email;
-                IsActive = true;
-                break;
+        Id = e.UserId;
+        Email = e.Email;
+        Name = e.Name;
+    }
 
-            case UserRenamedEvent e:
-                Name = e.NewName;
-                break;
-
-            case UserEmailChangedEvent e:
-                Email = e.NewEmail;
-                break;
-        }
+    private void Apply(UserEmailChangedEvent e)
+    {
+        Email = e.NewEmail;
     }
 }
 ```
 
-### 4. Use in Your Application
+### 4. Use in Controllers
 
 ```csharp
-using EventSourcing.Abstractions;
-
-public class UserService
+[ApiController]
+[Route("api/[controller]")]
+public class UsersController : ControllerBase
 {
     private readonly IAggregateRepository<UserAggregate, Guid> _repository;
 
-    public UserService(IAggregateRepository<UserAggregate, Guid> repository)
+    public UsersController(IAggregateRepository<UserAggregate, Guid> repository)
     {
         _repository = repository;
     }
 
-    public async Task<Guid> CreateUserAsync(string name, string email)
+    [HttpPost]
+    public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
     {
         var userId = Guid.NewGuid();
-        var user = UserAggregate.Create(userId, name, email);
+        var user = new UserAggregate();
+        user.CreateUser(userId, request.Email, request.Name);
 
         await _repository.SaveAsync(user);
-        return userId;
+
+        return CreatedAtAction(nameof(GetUser), new { id = userId }, user);
     }
 
-    public async Task RenameUserAsync(Guid userId, string newName)
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetUser(Guid id)
     {
-        var user = await _repository.GetByIdAsync(userId);
-        if (user == null)
-            throw new InvalidOperationException($"User {userId} not found");
+        var user = await _repository.GetByIdAsync(id);
+        return Ok(user);
+    }
 
-        user.Rename(newName);
+    [HttpPut("{id}/email")]
+    public async Task<IActionResult> UpdateEmail(Guid id, [FromBody] UpdateEmailRequest request)
+    {
+        var user = await _repository.GetByIdAsync(id);
+        user.ChangeEmail(request.Email);
         await _repository.SaveAsync(user);
-    }
 
-    public async Task<UserAggregate?> GetUserAsync(Guid userId)
-    {
-        return await _repository.GetByIdAsync(userId);
+        return Ok(user);
     }
 }
 ```
 
+## Example Application
+
+The `EventSourcing.Example.Api` demonstrates a complete implementation with:
+
+### **Two Aggregates**
+- **UserAggregate** - User management with email, name, activation
+- **OrderAggregate** - Order processing with items, shipping, payment
+
+### **Features**
+- ✅ REST API endpoints for both aggregates
+- ✅ Event history queries per aggregate
+- ✅ Global event queries with filtering
+- ✅ Event categorization by kind
+- ✅ Swagger/OpenAPI documentation
+- ✅ Comprehensive .http test files
+
+### **Run the Example**
+
+```bash
+# Start MongoDB (Docker)
+docker run -d -p 27017:27017 mongo:7.0
+
+# Run the API
+cd examples/EventSourcing.Example.Api
+dotnet run
+```
+
+Visit `http://localhost:5147/swagger` to explore the API.
+
+### **Available Endpoints**
+
+**Users:**
+- `GET /api/users` - List all users
+- `GET /api/users/{id}` - Get user by ID
+- `POST /api/users` - Create user
+- `PUT /api/users/{id}/email` - Update email
+- `POST /api/users/{id}/activate` - Activate user
+- `GET /api/users/{id}/events` - Get user event history
+
+**Orders:**
+- `GET /api/orders` - List all orders
+- `GET /api/orders/{id}` - Get order by ID
+- `POST /api/orders` - Create order
+- `POST /api/orders/{id}/items` - Add items
+- `POST /api/orders/{id}/ship` - Ship order
+- `GET /api/orders/{id}/events` - Get order event history
+
+**Events:**
+- `GET /api/events/users` - All user events
+- `GET /api/events/orders` - All order events
+- `GET /api/events/users/kind/{kind}` - Filter by event kind
+- `GET /api/events/users/since?since={timestamp}` - Events since timestamp
+
 ## Core Concepts
 
-### Event Sourcing
+### Event Sourcing Pattern
 
-Instead of storing just the current state, event sourcing stores **all state changes as immutable events**. The current state is reconstructed by replaying all events for an aggregate.
+Instead of storing just the current state, event sourcing stores **all state changes** as immutable events.
+
+```
+Traditional Storage:
+┌──────────────────────┐
+│   User Table         │
+├──────────────────────┤
+│ Id: 123              │
+│ Email: new@email.com │
+│ Name: John Doe       │
+└──────────────────────┘
+
+Event Sourcing:
+┌─────────────────────────────────────┐
+│ UserCreated(123, "john@email.com")  │
+│ EmailChanged("new@email.com")       │
+│ NameChanged("John Doe")             │
+└─────────────────────────────────────┘
+```
 
 **Benefits:**
-- Complete audit trail
-- Time travel (reconstruct state at any point)
-- Event replay for debugging
-- Easy to build projections and read models
+- Complete audit trail of all changes
+- Reconstruct state at any point in time
+- Event replay for debugging and testing
+- Build multiple read models from same events
 
 ### Aggregates
 
-An aggregate is a cluster of domain objects that can be treated as a single unit. Each aggregate has:
-- **Identity** - Unique identifier (Guid, int, string, etc.)
-- **Version** - Used for optimistic concurrency control
-- **Events** - Uncommitted domain events that represent state changes
-- **State** - Reconstructed by applying events
+An aggregate is a cluster of domain objects treated as a single unit:
 
-### Events
-
-Events are immutable facts that represent something that happened:
-- Named in past tense (UserCreated, OrderPlaced)
-- Contain all data needed to reconstruct state
-- Have unique EventId and Timestamp
-- Automatically generate a "Kind" for categorization
-
-### Event Kinds
-
-Events automatically generate a "kind" field for categorization:
-
-```csharp
-public record UserCreatedEvent(Guid UserId, string Name, string Email) : DomainEvent;
-// Auto-generates Kind: "user.created"
-
-public record OrderPlacedEvent(Guid OrderId, decimal Amount) : DomainEvent;
-// Auto-generates Kind: "order.placed"
-```
-
-You can also specify a custom kind:
-
-```csharp
-public record CustomEvent(string Data) : DomainEvent("custom.category");
-```
+- **Identity** - Unique identifier (Guid, int, string, custom type)
+- **Version** - Monotonic version number for optimistic concurrency
+- **Events** - Uncommitted domain events representing pending changes
+- **State** - Reconstructed by replaying all events
 
 ### Snapshots
 
-Snapshots are point-in-time captures of aggregate state that optimize performance:
+Snapshots optimize performance by storing point-in-time state:
 
 ```csharp
-builder.Services.AddEventSourcing(options =>
-{
-    options.UseMongoDB("mongodb://localhost:27017", "eventstore");
-    options.SnapshotEvery(10); // Snapshot every 10 events
-});
+config.SnapshotEvery(10); // Create snapshot every 10 events
 ```
 
 **How it works:**
-1. When saving, if (version % snapshotFrequency == 0), a snapshot is created
-2. When loading, the latest snapshot is retrieved + subsequent events
-3. State is reconstructed from snapshot, then events are replayed
+1. When loading: Retrieve latest snapshot + subsequent events
+2. When saving: If `version % 10 == 0`, create snapshot
+3. State reconstruction: Apply snapshot → replay events since snapshot
 
-**Performance:**
-- No snapshots: Replay 1000 events
-- Snapshot every 10: Replay 10 events max
-- Snapshot every 1: No replay, but many writes (not recommended)
+**Performance impact:**
+- Without snapshots: Replay 1000 events (slow)
+- With `SnapshotEvery(10)`: Replay max 10 events (fast)
+- With `SnapshotEvery(1)`: Replay 1 event (fastest reads, many writes)
 
-**Recommended:** Snapshot every 10-50 events depending on your aggregate complexity.
+**Recommended:** `SnapshotEvery(10)` to `SnapshotEvery(50)` depending on complexity.
 
-### Concurrency Control
+### Optimistic Concurrency
 
-The library uses optimistic concurrency control with version numbers:
+Version-based concurrency control prevents conflicts:
 
 ```csharp
 // Thread 1
-var user = await repository.GetByIdAsync(userId); // Version = 5
-user.Rename("Alice");
-await repository.SaveAsync(user); // Version = 6 ✓
-
-// Thread 2 (concurrent)
-var user = await repository.GetByIdAsync(userId); // Version = 5
+var user = await repo.GetByIdAsync(id); // Version = 5
 user.ChangeEmail("new@email.com");
-await repository.SaveAsync(user); // ConcurrencyException! Expected 5, got 6
+await repo.SaveAsync(user); // Version = 6 ✓
+
+// Thread 2 (concurrent modification)
+var user = await repo.GetByIdAsync(id); // Version = 5
+user.ChangeName("Alice");
+await repo.SaveAsync(user); // ❌ ConcurrencyException!
 ```
 
-Handle with retry logic or merge strategies.
+Handle with retry logic or conflict resolution strategies.
 
-## Advanced Usage
+## Event Queries for CQRS
 
-### Querying Events
-
-Get all events for a specific aggregate:
+Build optimized read models using event queries:
 
 ```csharp
-var events = await eventStore.GetEventsAsync(userId, "UserAggregate");
-```
-
-Get all events across all aggregates (for projections):
-
-```csharp
-// All events
+// Get all events for projection building
 var allEvents = await eventStore.GetAllEventsAsync("UserAggregate");
 
-// Events since a timestamp (incremental processing)
+// Incremental processing
 var recentEvents = await eventStore.GetAllEventsAsync(
     "UserAggregate",
-    DateTimeOffset.UtcNow.AddDays(-7)
+    DateTimeOffset.UtcNow.AddHours(-1)
 );
 
 // Filter by event kind
@@ -277,24 +316,22 @@ var createdEvents = await eventStore.GetEventsByKindAsync(
     "user.created"
 );
 
-// Filter by multiple kinds
+// Multiple kinds
 var events = await eventStore.GetEventsByKindsAsync(
     "UserAggregate",
-    new[] { "user.created", "user.renamed" }
+    new[] { "user.created", "user.emailchanged" }
 );
 ```
 
-### Building Projections (CQRS)
-
-Use event queries to build read models:
+### Building Projections
 
 ```csharp
-public class UserProjectionBuilder
+public class UserListProjection
 {
     private readonly IEventStore _eventStore;
-    private readonly IUserReadModelRepository _readModelRepo;
+    private readonly IMongoCollection<UserListItem> _collection;
 
-    public async Task RebuildProjectionAsync()
+    public async Task RebuildAsync()
     {
         var events = await _eventStore.GetAllEventsAsync("UserAggregate");
 
@@ -303,16 +340,19 @@ public class UserProjectionBuilder
             switch (evt)
             {
                 case UserCreatedEvent e:
-                    await _readModelRepo.InsertAsync(new UserReadModel
+                    await _collection.InsertOneAsync(new UserListItem
                     {
                         Id = e.UserId,
-                        Name = e.Name,
-                        Email = e.Email
+                        Email = e.Email,
+                        Name = e.Name
                     });
                     break;
 
-                case UserRenamedEvent e:
-                    await _readModelRepo.UpdateNameAsync(e.UserId, e.NewName);
+                case UserEmailChangedEvent e:
+                    await _collection.UpdateOneAsync(
+                        u => u.Id == e.UserId,
+                        Builders<UserListItem>.Update.Set(u => u.Email, e.NewEmail)
+                    );
                     break;
             }
         }
@@ -320,347 +360,234 @@ public class UserProjectionBuilder
 }
 ```
 
-### Custom Aggregate ID Types
+## MongoDB Collections & Indexes
 
-Support for any ID type:
-
-```csharp
-// String IDs
-public class ProductAggregate : Aggregate<string> { }
-
-// Int IDs
-public class OrderAggregate : Aggregate<int> { }
-
-// Custom types (must override ToString())
-public record CustomId(string Prefix, int Number);
-public class CustomAggregate : Aggregate<CustomId> { }
-```
-
-### Event Handlers Outside Aggregate
-
-Implement `IEventHandler<TEvent>` for side effects:
-
-```csharp
-public class SendWelcomeEmailHandler : IEventHandler<UserCreatedEvent>
-{
-    private readonly IEmailService _emailService;
-
-    public async Task HandleAsync(UserCreatedEvent @event)
-    {
-        await _emailService.SendWelcomeEmailAsync(@event.Email, @event.Name);
-    }
-}
-```
-
-Register handlers:
-
-```csharp
-builder.Services.AddEventSourcing(options =>
-{
-    options.UseMongoDB("mongodb://localhost:27017", "eventstore");
-    options.AddEventHandler<SendWelcomeEmailHandler>();
-});
-```
-
-## MongoDB Collections
-
-For each aggregate type, the following collections are created:
+For each aggregate type, two collections are created:
 
 ```
-{aggregateType}_events      - All events (append-only)
-{aggregateType}_snapshots   - Periodic snapshots
+{aggregateType}_events      - Append-only event log
+{aggregateType}_snapshots   - Point-in-time state captures
 ```
 
-Example for `UserAggregate`:
+**Example:**
 ```
-user_events
-user_snapshots
+useraggregate_events
+useraggregate_snapshots
+orderaggregate_events
+orderaggregate_snapshots
 ```
 
-### Indexes
+**Automatically created indexes:**
 
-The library automatically creates these indexes:
-
-**Events Collection:**
+Events:
 - `{ aggregateId: 1, version: 1 }` (unique) - Fast aggregate loading
 - `{ timestamp: 1 }` - Time-based queries
 - `{ kind: 1 }` - Event kind filtering
 
-**Snapshots Collection:**
-- `{ aggregateId: 1, version: -1 }` - Fast snapshot retrieval
+Snapshots:
+- `{ aggregateId: 1, aggregateType: 1 }` (unique) - Fast snapshot retrieval
 
 ## Testing
 
-The library is designed to be testable:
+The library includes 85+ tests with comprehensive coverage:
+
+```bash
+dotnet test
+```
+
+**Example tests:**
 
 ```csharp
 [Fact]
-public void User_CanBeRenamed()
+public void UserAggregate_CreateUser_ShouldRaiseEvent()
 {
     // Arrange
-    var user = UserAggregate.Create(Guid.NewGuid(), "John", "john@example.com");
+    var aggregate = new UserAggregate();
+    var userId = Guid.NewGuid();
 
     // Act
-    user.Rename("Jane");
+    aggregate.CreateUser(userId, "test@example.com", "Test User");
 
     // Assert
-    user.Name.Should().Be("Jane");
-    user.GetUncommittedEvents().Should().HaveCount(2); // Created + Renamed
+    aggregate.Id.Should().Be(userId);
+    aggregate.Email.Should().Be("test@example.com");
+    aggregate.GetUncommittedEvents().Should().HaveCount(1);
 }
 
 [Fact]
-public async Task Repository_HandlesOptimisticConcurrency()
+public async Task Repository_ConcurrencyConflict_ShouldThrow()
 {
     // Arrange
-    var user = UserAggregate.Create(Guid.NewGuid(), "John", "john@example.com");
-    await repository.SaveAsync(user);
+    var user = new UserAggregate();
+    user.CreateUser(Guid.NewGuid(), "test@example.com", "Test");
+    await _repository.SaveAsync(user);
 
-    // Act - Simulate concurrent modification
-    var user1 = await repository.GetByIdAsync(user.Id);
-    var user2 = await repository.GetByIdAsync(user.Id);
+    // Act - Concurrent modifications
+    var user1 = await _repository.GetByIdAsync(user.Id);
+    var user2 = await _repository.GetByIdAsync(user.Id);
 
-    user1.Rename("Alice");
-    await repository.SaveAsync(user1);
+    user1.ChangeEmail("new1@example.com");
+    await _repository.SaveAsync(user1);
 
-    user2.Rename("Bob");
+    user2.ChangeEmail("new2@example.com");
 
     // Assert
     await Assert.ThrowsAsync<ConcurrencyException>(() =>
-        repository.SaveAsync(user2)
+        _repository.SaveAsync(user2)
     );
 }
-```
-
-## API Example
-
-See the `EventSourcing.Example.Api` project for a complete ASP.NET Core example with:
-- REST endpoints for user management
-- Event history endpoints
-- Event filtering by kind
-- Swagger documentation
-
-Run the example:
-
-```bash
-cd examples/EventSourcing.Example.Api
-dotnet run
-```
-
-Then visit `http://localhost:5000/swagger` to explore the API.
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────┐
-│                   Application Layer                  │
-│  (Controllers, Services, Command/Query Handlers)    │
-└─────────────────┬───────────────────────────────────┘
-                  │
-┌─────────────────▼───────────────────────────────────┐
-│              Domain Layer (Aggregates)              │
-│  • UserAggregate, OrderAggregate, etc.              │
-│  • Business logic & invariants                      │
-│  • Raise domain events                              │
-└─────────────────┬───────────────────────────────────┘
-                  │
-┌─────────────────▼───────────────────────────────────┐
-│         Repository (IAggregateRepository)           │
-│  • Load aggregates (snapshots + events)             │
-│  • Save aggregates (append events + snapshots)      │
-│  • Optimistic concurrency checks                    │
-└──────────┬─────────────────────────────────┬────────┘
-           │                                 │
-┌──────────▼─────────┐           ┌───────────▼────────┐
-│  IEventStore       │           │  ISnapshotStore    │
-│  • Append events   │           │  • Save snapshots  │
-│  • Query events    │           │  • Load snapshots  │
-│  • MongoDB impl    │           │  • MongoDB impl    │
-└────────────────────┘           └────────────────────┘
 ```
 
 ## Best Practices
 
-### 1. Keep Events Small and Focused
-
+### ✅ DO: Name events in past tense
 ```csharp
-// Good - Focused events
-public record UserRenamedEvent(string NewName) : DomainEvent;
-public record UserEmailChangedEvent(string NewEmail) : DomainEvent;
-
-// Bad - Kitchen sink event
-public record UserUpdatedEvent(string? Name, string? Email, bool? Active) : DomainEvent;
-```
-
-### 2. Name Events in Past Tense
-
-```csharp
-// Good
 public record UserCreatedEvent(...) : DomainEvent;
 public record OrderPlacedEvent(...) : DomainEvent;
-
-// Bad
-public record CreateUserEvent(...) : DomainEvent;
-public record PlaceOrderEvent(...) : DomainEvent;
 ```
 
-### 3. Don't Delete or Modify Events
-
-Events are immutable facts. Never modify stored events. For schema changes, use event versioning:
-
+### ❌ DON'T: Name events in imperative
 ```csharp
-public record UserCreatedEventV2(
-    Guid UserId,
-    string Name,
-    string Email,
-    string PhoneNumber  // New field
-) : DomainEvent;
+public record CreateUserEvent(...) : DomainEvent; // Wrong!
 ```
 
-### 4. Use Snapshots Wisely
-
-- Default: `SnapshotEvery(10)` for most aggregates
-- High-frequency: `SnapshotEvery(50)` if events are cheap to replay
-- Low-frequency: `SnapshotEvery(5)` if events are expensive
-
-### 5. Build Projections for Queries
-
-Don't query aggregates directly. Use CQRS with projections:
-
+### ✅ DO: Keep events small and focused
 ```csharp
-// Bad - Loading all aggregates to find active users
-var users = await repository.GetAllAsync();
-var activeUsers = users.Where(u => u.IsActive);
-
-// Good - Query optimized read model
-var activeUsers = await userReadModel.GetActiveUsersAsync();
+public record UserEmailChangedEvent(string NewEmail) : DomainEvent;
+public record UserNameChangedEvent(string NewName) : DomainEvent;
 ```
 
-### 6. Handle Concurrency Thoughtfully
-
+### ❌ DON'T: Create kitchen-sink events
 ```csharp
-public async Task RenameUserWithRetryAsync(Guid userId, string newName)
+public record UserUpdatedEvent(string? Name, string? Email, bool? Active) : DomainEvent; // Wrong!
+```
+
+### ✅ DO: Use snapshots wisely
+```csharp
+config.SnapshotEvery(10); // Good for most cases
+```
+
+### ❌ DON'T: Snapshot on every event
+```csharp
+config.SnapshotEvery(1); // Excessive write overhead!
+```
+
+### ✅ DO: Handle concurrency with retries
+```csharp
+for (int i = 0; i < 3; i++)
 {
-    const int maxRetries = 3;
-
-    for (int i = 0; i < maxRetries; i++)
+    try
     {
-        try
-        {
-            var user = await _repository.GetByIdAsync(userId);
-            user.Rename(newName);
-            await _repository.SaveAsync(user);
-            return;
-        }
-        catch (ConcurrencyException) when (i < maxRetries - 1)
-        {
-            // Retry with latest version
-            await Task.Delay(100 * (i + 1)); // Exponential backoff
-        }
+        var user = await _repo.GetByIdAsync(id);
+        user.ChangeEmail(newEmail);
+        await _repo.SaveAsync(user);
+        return;
     }
-
-    throw new InvalidOperationException("Failed to update user after retries");
+    catch (ConcurrencyException) when (i < 2)
+    {
+        await Task.Delay(100 * (i + 1));
+    }
 }
 ```
 
-## Performance Considerations
+### ✅ DO: Build projections for queries
+```csharp
+// Good - Query optimized read model
+var users = await _userReadModel.GetActiveUsersAsync();
+```
 
-### Event Store Performance
-
-- **Writes**: O(1) - Append-only, very fast
-- **Reads**: O(log n) with indexes
-- **Snapshots**: O(1) with proper indexing
-
-### Optimization Tips
-
-1. **Use Snapshots** - Reduces event replay overhead
-2. **Index Properly** - Call `EnsureIndexesAsync()` on startup
-3. **Batch Operations** - Use MongoDB transactions for multiple aggregates
-4. **Async All The Way** - Use async/await throughout
-5. **Connection Pooling** - MongoDB driver handles this automatically
+### ❌ DON'T: Load aggregates for queries
+```csharp
+// Bad - Loading all aggregates
+var allUsers = await _repo.GetAllAsync(); // No such method!
+var activeUsers = allUsers.Where(u => u.IsActive); // Wrong!
+```
 
 ## Troubleshooting
 
-### "Event type 'XxxEvent' is not registered"
+### "Event type not registered"
 
 **Error:**
 ```
 System.InvalidOperationException: Event type 'UserCreatedEvent' is not registered.
-Make sure to register all event types during application startup.
 ```
 
-**Cause:** Event types must be registered for deserialization from MongoDB.
-
-**Solution:** Add `.RegisterEventsFromAssembly()` to your configuration:
-
+**Solution:**
 ```csharp
 builder.Services.AddEventSourcing(config =>
 {
-    config.UseMongoDB("mongodb://localhost:27017", "eventstore")
-          .RegisterEventsFromAssembly(typeof(Program).Assembly) // Register all events
-          .InitializeMongoDB("UserAggregate");
+    config.UseMongoDB(...)
+          .RegisterEventsFromAssembly(typeof(Program).Assembly);
 });
-```
-
-Or register specific event types:
-
-```csharp
-config.RegisterEventTypes(
-    typeof(UserCreatedEvent),
-    typeof(UserRenamedEvent),
-    typeof(UserEmailChangedEvent)
-);
 ```
 
 ### "Concurrency conflicts are frequent"
 
-Increase retry logic or redesign to reduce contention:
-- Split large aggregates into smaller ones
-- Use eventual consistency between aggregates
-- Consider using sagas for distributed transactions
+**Solutions:**
+1. Implement retry logic
+2. Split large aggregates into smaller ones
+3. Use eventual consistency between aggregates
+4. Consider using sagas for long-running processes
 
-### "Event replay is slow"
+### "Slow event replay"
 
-Check snapshot configuration:
-```csharp
-options.SnapshotEvery(10); // Increase snapshot frequency
-```
+**Solutions:**
+1. Increase snapshot frequency: `config.SnapshotEvery(5);`
+2. Verify indexes: Check MongoDB indexes are created
+3. Optimize event handlers: Remove heavy computations
 
-Verify indexes are created:
-```csharp
-await mongoStore.EnsureIndexesAsync("UserAggregate");
-```
+## Performance
 
-### "MongoDB connection issues"
+**Event Store Operations:**
+- Append events: **O(1)** - Very fast, append-only
+- Load aggregate: **O(log n)** - Fast with indexes + snapshots
+- Query all events: **O(n)** - Full collection scan (use projections!)
 
-Verify connection string and network access:
-```csharp
-builder.Services.AddEventSourcing(options =>
-{
-    options.UseMongoDB(
-        "mongodb://localhost:27017",
-        "eventstore"
-    );
-});
-```
+**Optimization Tips:**
+1. ✅ Use snapshots to reduce event replay
+2. ✅ Build read models for queries (CQRS)
+3. ✅ Call `InitializeMongoDB()` to ensure indexes
+4. ✅ Use connection pooling (automatic with MongoDB driver)
+5. ✅ Consider batch operations for bulk processing
+
+## CI/CD Integration
+
+This project uses GitHub Actions for:
+
+- ✅ **Continuous Integration** - Build and test on every push/PR
+- ✅ **Code Coverage** - Track test coverage with reports
+- ✅ **Automated Releases** - NuGet packages published on tags
+
+See `.github/workflows/` for workflow configurations.
 
 ## Roadmap
 
 - [ ] SQL Server provider
 - [ ] PostgreSQL provider
 - [ ] Event versioning and upcasting
-- [ ] Saga support for long-running processes
-- [ ] Event subscriptions and notifications
-- [ ] Projection framework
-- [ ] Migration tools
+- [ ] Saga pattern support
+- [ ] Built-in projection framework
+- [ ] Event subscriptions/notifications
+- [ ] Migration utilities
 
 ## Contributing
 
-Contributions are welcome! Please submit issues and pull requests on GitHub.
+Contributions welcome! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Submit a pull request
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Support
 
+- **Documentation**: This README
 - **Issues**: [GitHub Issues](https://github.com/Dyshay/EventSourcing/issues)
+- **Example**: `examples/EventSourcing.Example.Api/`
+
+---
+
+**Built with ❤️ for the .NET community**

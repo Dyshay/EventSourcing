@@ -19,7 +19,7 @@ builder.Services.AddEventSourcing(config =>
 {
     config.UseMongoDB(mongoConnectionString, mongoDatabaseName)
           .RegisterEventsFromAssembly(typeof(Program).Assembly) // Register all event types from this assembly
-          .InitializeMongoDB("UserAggregate"); // Initialize indexes for UserAggregate
+          .InitializeMongoDB("UserAggregate", "OrderAggregate"); // Initialize indexes for both aggregates
 
     // Snapshot every 10 events
     config.SnapshotEvery(10);
@@ -31,8 +31,9 @@ builder.Services.AddEventSourcing(config =>
     // config.AddEventPublisher<RabbitMQPublisher>();
 });
 
-// Register specific repository (optional, can use IAggregateRepository<UserAggregate, Guid> directly)
+// Register aggregate repositories
 builder.Services.AddAggregateRepository<UserAggregate, Guid>();
+builder.Services.AddAggregateRepository<OrderAggregate, Guid>();
 
 var app = builder.Build();
 
