@@ -1,5 +1,6 @@
 using System.Text.Json;
 using EventSourcing.Abstractions;
+using EventSourcing.Abstractions.Versioning;
 using EventSourcing.MongoDB.Models;
 using EventSourcing.MongoDB.Serialization;
 using MongoDB.Driver;
@@ -14,11 +15,13 @@ public class MongoEventStore : IEventStore
 {
     private readonly IMongoDatabase _database;
     private readonly EventSerializer _serializer;
+    private readonly IEventUpcasterRegistry? _upcasterRegistry;
 
-    public MongoEventStore(IMongoDatabase database)
+    public MongoEventStore(IMongoDatabase database, IEventUpcasterRegistry? upcasterRegistry = null)
     {
         _database = database ?? throw new ArgumentNullException(nameof(database));
         _serializer = new EventSerializer();
+        _upcasterRegistry = upcasterRegistry;
     }
 
     public async Task AppendEventsAsync<TId>(
@@ -106,7 +109,7 @@ public class MongoEventStore : IEventStore
             .SortBy(e => e.Version)
             .ToListAsync(cancellationToken);
 
-        return documents.Select(doc => _serializer.Deserialize(doc.EventType, doc.Data)).ToList();
+        return documents.Select(doc => DeserializeAndUpcast(doc.EventType, doc.Data)).ToList();
     }
 
     private IMongoCollection<EventDocument> GetEventCollection(string aggregateType)
@@ -142,7 +145,7 @@ public class MongoEventStore : IEventStore
             .ThenBy(e => e.Version)
             .ToListAsync(cancellationToken);
 
-        return documents.Select(doc => _serializer.Deserialize(doc.EventType, doc.Data)).ToList();
+        return documents.Select(doc => DeserializeAndUpcast(doc.EventType, doc.Data)).ToList();
     }
 
     public async Task<IEnumerable<IEvent>> GetAllEventsAsync(
@@ -160,7 +163,7 @@ public class MongoEventStore : IEventStore
             .ThenBy(e => e.Version)
             .ToListAsync(cancellationToken);
 
-        return documents.Select(doc => _serializer.Deserialize(doc.EventType, doc.Data)).ToList();
+        return documents.Select(doc => DeserializeAndUpcast(doc.EventType, doc.Data)).ToList();
     }
 
     public async Task<IEnumerable<IEvent>> GetEventsByKindAsync(
@@ -178,7 +181,7 @@ public class MongoEventStore : IEventStore
             .ThenBy(e => e.Version)
             .ToListAsync(cancellationToken);
 
-        return documents.Select(doc => _serializer.Deserialize(doc.EventType, doc.Data)).ToList();
+        return documents.Select(doc => DeserializeAndUpcast(doc.EventType, doc.Data)).ToList();
     }
 
     public async Task<IEnumerable<IEvent>> GetEventsByKindsAsync(
@@ -197,7 +200,7 @@ public class MongoEventStore : IEventStore
             .ThenBy(e => e.Version)
             .ToListAsync(cancellationToken);
 
-        return documents.Select(doc => _serializer.Deserialize(doc.EventType, doc.Data)).ToList();
+        return documents.Select(doc => DeserializeAndUpcast(doc.EventType, doc.Data)).ToList();
     }
 
     /// <summary>
@@ -340,6 +343,22 @@ public class MongoEventStore : IEventStore
             .ToListAsync(cancellationToken);
 
         return aggregateIds;
+    }
+
+    /// <summary>
+    /// Deserializes an event from storage and applies any registered upcasters
+    /// </summary>
+    private IEvent DeserializeAndUpcast(string eventType, string eventData)
+    {
+        var @event = _serializer.Deserialize(eventType, eventData);
+
+        // Apply upcasting if registry is available
+        if (_upcasterRegistry != null)
+        {
+            @event = _upcasterRegistry.UpcastToLatest(@event);
+        }
+
+        return @event;
     }
 
     private static EventEnvelope ConvertToEnvelope(EventDocument doc)

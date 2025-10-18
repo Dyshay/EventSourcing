@@ -88,4 +88,77 @@ public class EventsController : ControllerBase
 
         return Ok(events);
     }
+
+    // ========== ORDER EVENTS ==========
+
+    /// <summary>
+    /// Get all events for a specific order
+    /// </summary>
+    [HttpGet("orders/{orderId}")]
+    [ProducesResponseType(typeof(IEnumerable<EventEnvelope>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetOrderEvents(Guid orderId)
+    {
+        var events = await _eventStore.GetEventEnvelopesAsync(orderId, "OrderAggregate");
+
+        _logger.LogInformation("Retrieved {Count} events for order {OrderId}", events.Count(), orderId);
+
+        return Ok(events);
+    }
+
+    /// <summary>
+    /// Get all events for all orders (useful for audit trail, event replay, or building projections)
+    /// </summary>
+    [HttpGet("orders")]
+    [ProducesResponseType(typeof(IEnumerable<EventEnvelope>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAllOrderEvents()
+    {
+        var events = await _eventStore.GetAllEventEnvelopesAsync("OrderAggregate");
+
+        _logger.LogInformation("Retrieved {Count} total events for all orders", events.Count());
+
+        return Ok(events);
+    }
+
+    /// <summary>
+    /// Get all order events since a specific timestamp (useful for incremental processing)
+    /// </summary>
+    [HttpGet("orders/since")]
+    [ProducesResponseType(typeof(IEnumerable<EventEnvelope>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetOrderEventsSince([FromQuery] DateTimeOffset since)
+    {
+        var events = await _eventStore.GetAllEventEnvelopesAsync("OrderAggregate", since);
+
+        _logger.LogInformation("Retrieved {Count} order events since {Timestamp}", events.Count(), since);
+
+        return Ok(events);
+    }
+
+    /// <summary>
+    /// Get all order events of a specific kind/category (e.g., "order.created")
+    /// </summary>
+    [HttpGet("orders/kind/{kind}")]
+    [ProducesResponseType(typeof(IEnumerable<EventEnvelope>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetOrderEventsByKind(string kind)
+    {
+        var events = await _eventStore.GetEventEnvelopesByKindAsync("OrderAggregate", kind);
+
+        _logger.LogInformation("Retrieved {Count} order events of kind '{Kind}'", events.Count(), kind);
+
+        return Ok(events);
+    }
+
+    /// <summary>
+    /// Get all order events matching any of the specified kinds (e.g., "order.created,order.shipped")
+    /// </summary>
+    [HttpGet("orders/kinds")]
+    [ProducesResponseType(typeof(IEnumerable<EventEnvelope>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetOrderEventsByKinds([FromQuery] string kinds)
+    {
+        var kindsList = kinds.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        var events = await _eventStore.GetEventEnvelopesByKindsAsync("OrderAggregate", kindsList);
+
+        _logger.LogInformation("Retrieved {Count} order events matching kinds: {Kinds}", events.Count(), string.Join(", ", kindsList));
+
+        return Ok(events);
+    }
 }

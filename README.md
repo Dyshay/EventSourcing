@@ -26,8 +26,9 @@ Event sourcing captures **all changes to application state** as a sequence of im
 - 🔒 **Type Safe** - Strongly typed aggregates and events with C# records
 - ⚡ **Concurrency Control** - Built-in optimistic locking with versioning
 - 🔍 **Query API** - Rich event querying for projections and read models
+- 🔄 **Event Versioning** - Automatic upcasting for event schema evolution
 - 🧩 **Extensible** - Provider pattern ready for SQL Server, PostgreSQL, etc.
-- ✅ **Production Ready** - 85+ tests with continuous integration
+- ✅ **Production Ready** - 94+ tests with continuous integration
 
 ## Installation
 
@@ -213,11 +214,19 @@ Visit `http://localhost:5147/swagger` to explore the API.
 - `POST /api/orders/{id}/ship` - Ship order
 - `GET /api/orders/{id}/events` - Get order event history
 
-**Events:**
+**Events (Users):**
 - `GET /api/events/users` - All user events
-- `GET /api/events/orders` - All order events
-- `GET /api/events/users/kind/{kind}` - Filter by event kind
+- `GET /api/events/users/{userId}` - Events for specific user
+- `GET /api/events/users/kind/{kind}` - Filter by event kind (e.g., "user.created")
+- `GET /api/events/users/kinds?kinds={kinds}` - Filter by multiple kinds (comma-separated)
 - `GET /api/events/users/since?since={timestamp}` - Events since timestamp
+
+**Events (Orders):**
+- `GET /api/events/orders` - All order events
+- `GET /api/events/orders/{orderId}` - Events for specific order
+- `GET /api/events/orders/kind/{kind}` - Filter by event kind (e.g., "order.placed")
+- `GET /api/events/orders/kinds?kinds={kinds}` - Filter by multiple kinds (comma-separated)
+- `GET /api/events/orders/since?since={timestamp}` - Events since timestamp
 
 ## Core Concepts
 
@@ -564,7 +573,7 @@ See `.github/workflows/` for workflow configurations.
 
 - [ ] SQL Server provider
 - [ ] PostgreSQL provider
-- [ ] Event versioning and upcasting
+- [x] Event versioning and upcasting ✅
 - [ ] Saga pattern support
 - [ ] Built-in projection framework
 - [ ] Event subscriptions/notifications
@@ -586,7 +595,9 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ### 📚 Guides
 
+- **[Event Versioning & Upcasting](docs/EVENT_VERSIONING.md)** - Evolve event schemas over time with automatic transformations
 - **[Creating Custom Providers](docs/CUSTOM_PROVIDERS.md)** - Build your own storage provider for any database
+- **[Multi-Database Usage](docs/MULTI_DB_USAGE.md)** - Use different databases for different aggregates
 - **[Release Process](.github/RELEASE.md)** - How to create and publish releases
 
 ### 📖 Core Documentation

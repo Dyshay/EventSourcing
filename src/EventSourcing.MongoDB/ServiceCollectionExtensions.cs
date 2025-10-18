@@ -1,4 +1,5 @@
 using EventSourcing.Abstractions;
+using EventSourcing.Abstractions.Versioning;
 using EventSourcing.Core;
 using EventSourcing.Core.Configuration;
 using EventSourcing.Core.Publishing;
@@ -45,11 +46,30 @@ public static class ServiceCollectionExtensions
         }
 
         // Register event store and snapshot store from the provider
-        services.AddSingleton(sp =>
+        services.AddSingleton<IEventStore>(sp =>
         {
             var provider = sp.GetRequiredService<IEventSourcingStorageProvider>();
             provider.ValidateConfiguration();
-            return provider.CreateEventStore();
+
+            // Get upcaster registry if available and create event store with it
+            var eventStore = provider.CreateEventStore();
+
+            // If the event store supports upcasting and a registry is registered, inject it
+            if (eventStore is MongoEventStore mongoStore)
+            {
+                var registry = sp.GetService<IEventUpcasterRegistry>();
+                if (registry != null)
+                {
+                    // Need to recreate with registry
+                    var mongoProvider = provider as MongoDBStorageProvider;
+                    if (mongoProvider != null)
+                    {
+                        return mongoProvider.CreateEventStoreWithRegistry(registry);
+                    }
+                }
+            }
+
+            return eventStore;
         });
 
         services.AddSingleton(sp =>
