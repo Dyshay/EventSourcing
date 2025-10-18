@@ -663,6 +663,4 @@ MIT License - see LICENSE file for details
 
 ## Support
 
-- **Documentation**: [GitHub Wiki](https://github.com/yourorg/event-sourcing/wiki)
-- **Issues**: [GitHub Issues](https://github.com/yourorg/event-sourcing/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourorg/event-sourcing/discussions)
+- **Issues**: [GitHub Issues](https://github.com/Dyshay/EventSourcing/issues)
