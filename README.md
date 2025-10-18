@@ -215,6 +215,10 @@ Visit `http://localhost:5147/swagger` to explore the API.
 - `POST /api/orders/{id}/ship` - Ship order
 - `GET /api/orders/{id}/events` - Get order event history
 
+**Sagas:**
+- `POST /api/saga/orders` - Create and execute order processing saga
+- `GET /api/saga/{sagaId}` - Get saga status and details
+
 **Events (Users):**
 - `GET /api/events/users` - All user events
 - `GET /api/events/users/{userId}` - Events for specific user
@@ -707,6 +711,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - **[Event Versioning & Upcasting](docs/EVENT_VERSIONING.md)** - Evolve event schemas over time with automatic transformations
 - **[Creating Custom Providers](docs/CUSTOM_PROVIDERS.md)** - Build your own storage provider for any database
 - **[Testing Guide](docs/TESTING.md)** - Running tests locally and in CI with MongoDB configuration
+- **[GitHub Secrets Configuration](docs/GITHUB_SECRETS.md)** - Configure MongoDB Atlas or remote database for CI/CD
 - **[Release Process](.github/RELEASE.md)** - How to create and publish releases
 
 ### 📖 Core Documentation

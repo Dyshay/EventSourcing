@@ -13,6 +13,7 @@ jobs:
     permissions:
       contents: read
 
+    # MongoDB service - only used if MONGODB_CONNECTION_STRING secret is not set
     services:
       mongodb:
         image: mongo:7.0
@@ -42,7 +43,8 @@ jobs:
     - name: Test with coverage
       run: dotnet test EventSourcing.sln --configuration Debug --no-build --collect:"XPlat Code Coverage" --results-directory ./coverage
       env:
-        MONGODB_CONNECTION_STRING: mongodb://localhost:27017
+        # Use secret if available, otherwise fall back to local MongoDB service
+        MONGODB_CONNECTION_STRING: ${{ secrets.MONGODB_CONNECTION_STRING || 'mongodb://localhost:27017' }}
         CI: true
 
     - name: Install ReportGenerator

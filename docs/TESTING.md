@@ -93,7 +93,11 @@ GitHub Actions workflows automatically configure MongoDB:
 - **CI Workflow** (`.github/workflows/ci.yml`): Uses MongoDB service container
 - **Code Coverage** (`.github/workflows/code-coverage.yml`): Uses MongoDB service container
 
-Both workflows set `MONGODB_CONNECTION_STRING=mongodb://localhost:27017` and `CI=true`.
+Both workflows support:
+- **Local MongoDB** (default): Uses Docker service container (`mongodb://localhost:27017`)
+- **Remote MongoDB**: Configure `MONGODB_CONNECTION_STRING` secret in GitHub
+
+For remote database configuration, see **[GitHub Secrets Configuration](GITHUB_SECRETS.md)**.
 
 ## Test Categories
 
