@@ -540,7 +540,6 @@ else if (result.Status == SagaStatus.Compensated) { /* Failed + rolled back */ }
 
 ### 🛠️ Operations
 - **[Testing Guide](docs/TESTING.md)** - Run tests locally and in CI
-- **[GitHub Secrets](docs/GITHUB_SECRETS.md)** - Configure CI/CD
 
 ### 📦 Example Application
 `examples/EventSourcing.Example.Api/` - Complete REST API with:
