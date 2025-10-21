@@ -71,6 +71,7 @@ jobs:
         dotnet pack src/EventSourcing.Abstractions/EventSourcing.Abstractions.csproj --configuration Release --no-build --output ./packages -p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
         dotnet pack src/EventSourcing.Core/EventSourcing.Core.csproj --configuration Release --no-build --output ./packages -p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
         dotnet pack src/EventSourcing.MongoDB/EventSourcing.MongoDB.csproj --configuration Release --no-build --output ./packages -p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+        dotnet pack src/EventSourcing.CQRS/EventSourcing.CQRS.csproj --configuration Release --no-build --output ./packages -p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
 
     - name: Push to NuGet
       run: dotnet nuget push ./packages/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
@@ -88,6 +89,7 @@ jobs:
           - EventSourcing.Abstractions ${{ steps.get_version.outputs.VERSION }}
           - EventSourcing.Core ${{ steps.get_version.outputs.VERSION }}
           - EventSourcing.MongoDB ${{ steps.get_version.outputs.VERSION }}
+          - EventSourcing.CQRS ${{ steps.get_version.outputs.VERSION }}
 
           ### Installation
           ```bash
