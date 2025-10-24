@@ -10,28 +10,21 @@ namespace EventSourcing.Core;
 /// </summary>
 /// <typeparam name="TAggregate">Type of the aggregate</typeparam>
 /// <typeparam name="TId">Type of the aggregate identifier</typeparam>
-public class AggregateRepository<TAggregate, TId> : IAggregateRepository<TAggregate, TId>
+public class AggregateRepository<TAggregate, TId>(
+    IEventStore eventStore,
+    ISnapshotStore snapshotStore,
+    ISnapshotStrategy snapshotStrategy,
+    IEventBus? eventBus = null)
+    : IAggregateRepository<TAggregate, TId>
     where TAggregate : IAggregate<TId>, new()
     where TId : notnull
 {
-    private readonly IEventStore _eventStore;
-    private readonly ISnapshotStore _snapshotStore;
-    private readonly ISnapshotStrategy _snapshotStrategy;
-    private readonly IEventBus? _eventBus;
-    private readonly string _aggregateType;
+    private readonly IEventStore _eventStore = eventStore ?? throw new ArgumentNullException(nameof(eventStore));
+    private readonly ISnapshotStore _snapshotStore = snapshotStore ?? throw new ArgumentNullException(nameof(snapshotStore));
+    private readonly ISnapshotStrategy _snapshotStrategy = snapshotStrategy ?? throw new ArgumentNullException(nameof(snapshotStrategy));
 
-    public AggregateRepository(
-        IEventStore eventStore,
-        ISnapshotStore snapshotStore,
-        ISnapshotStrategy snapshotStrategy,
-        IEventBus? eventBus = null)
-    {
-        _eventStore = eventStore ?? throw new ArgumentNullException(nameof(eventStore));
-        _snapshotStore = snapshotStore ?? throw new ArgumentNullException(nameof(snapshotStore));
-        _snapshotStrategy = snapshotStrategy ?? throw new ArgumentNullException(nameof(snapshotStrategy));
-        _eventBus = eventBus; // Optional - only used if projections/publishers are configured
-        _aggregateType = typeof(TAggregate).Name;
-    }
+    // Optional - only used if projections/publishers are configured
+    private readonly string _aggregateType = typeof(TAggregate).Name;
 
     public async Task<TAggregate> GetByIdAsync(TId aggregateId, CancellationToken cancellationToken = default)
     {
@@ -106,9 +99,9 @@ public class AggregateRepository<TAggregate, TId> : IAggregateRepository<TAggreg
         aggregate.Version = newVersion;
 
         // Publish events to projections and external publishers (if configured)
-        if (_eventBus != null)
+        if (eventBus != null)
         {
-            await _eventBus.PublishAsync(uncommittedEvents, cancellationToken);
+            await eventBus.PublishAsync(uncommittedEvents, cancellationToken);
         }
 
         // Check if we should create a snapshot
@@ -173,9 +166,9 @@ public class AggregateRepository<TAggregate, TId> : IAggregateRepository<TAggreg
         aggregate.Version = result.NewVersion;
 
         // Publish events to projections and external publishers (if configured)
-        if (_eventBus != null)
+        if (eventBus != null)
         {
-            await _eventBus.PublishAsync(uncommittedEvents, cancellationToken);
+            await eventBus.PublishAsync(uncommittedEvents, cancellationToken);
         }
 
         // Check if we should create a snapshot
@@ -198,7 +191,8 @@ public class AggregateRepository<TAggregate, TId> : IAggregateRepository<TAggreg
                 cancellationToken);
         }
 
-        return result;
+        // Return result with both event IDs and the actual events
+        return new AppendEventsResult(result.EventIds, uncommittedEvents, result.NewVersion);
     }
 
     public async Task<Guid> AppendEventAsync(TId aggregateId, IEvent @event, int expectedVersion, CancellationToken cancellationToken = default)
@@ -212,9 +206,9 @@ public class AggregateRepository<TAggregate, TId> : IAggregateRepository<TAggreg
             cancellationToken);
 
         // Publish the event to projections and external publishers (if configured)
-        if (_eventBus != null)
+        if (eventBus != null)
         {
-            await _eventBus.PublishAsync(new[] { @event }, cancellationToken);
+            await eventBus.PublishAsync(new[] { @event }, cancellationToken);
         }
 
         // Check if we should create a snapshot
