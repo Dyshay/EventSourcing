@@ -398,4 +398,56 @@ public class MongoEventStoreTests : IAsyncLifetime
         events2.Should().HaveCount(1);
         events2.Cast<TestEventV1>().First().Data.Should().Be("A2");
     }
+
+    [Fact]
+    public async Task AppendEventsAsync_ShouldThrowArgumentException_WhenAggregateTypeIsNull()
+    {
+        // Arrange
+        var aggregateId = Guid.NewGuid();
+        var events = new List<IEvent> { new TestEventV1("Test") };
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            _eventStore.AppendEventsAsync(
+                aggregateId,
+                null!,
+                events,
+                0,
+                CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task AppendEventsAsync_ShouldThrowArgumentNullException_WhenEventsIsNull()
+    {
+        // Arrange
+        var aggregateId = Guid.NewGuid();
+        var aggregateType = "TestAggregate";
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
+            _eventStore.AppendEventsAsync(
+                aggregateId,
+                aggregateType,
+                null!,
+                0,
+                CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task AppendEventsAsync_ShouldThrowArgumentException_WhenEventIsNull()
+    {
+        // Arrange
+        var aggregateId = Guid.NewGuid();
+        var aggregateType = "TestAggregate";
+        var events = new List<IEvent?> { null }; // List with null event
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            _eventStore.AppendEventsAsync(
+                aggregateId,
+                aggregateType,
+                events!,
+                0,
+                CancellationToken.None));
+    }
 }

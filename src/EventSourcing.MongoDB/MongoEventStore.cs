@@ -31,6 +31,12 @@ public class MongoEventStore : IEventStore
         int expectedVersion,
         CancellationToken cancellationToken = default) where TId : notnull
     {
+        if (string.IsNullOrEmpty(aggregateType))
+            throw new ArgumentException("Aggregate type cannot be null or empty", nameof(aggregateType));
+
+        if (events == null)
+            throw new ArgumentNullException(nameof(events));
+
         var collection = GetEventCollection(aggregateType);
         var eventsList = events.ToList();
 
@@ -54,14 +60,17 @@ public class MongoEventStore : IEventStore
 
         foreach (var @event in eventsList)
         {
+            if (@event == null)
+                throw new ArgumentException("Event collection contains null event", nameof(events));
+
             version++;
             var document = new EventDocument
             {
                 AggregateId = aggregateIdStr,
                 AggregateType = aggregateType,
                 Version = version,
-                EventType = @event.EventType,
-                Kind = @event.Kind,
+                EventType = @event.EventType ?? throw new InvalidOperationException($"Event {nameof(@event.EventType)} cannot be null"),
+                Kind = @event.Kind ?? throw new InvalidOperationException($"Event {nameof(@event.Kind)} cannot be null"),
                 EventId = @event.EventId,
                 Timestamp = @event.Timestamp,
                 Data = _serializer.Serialize(@event)
@@ -352,6 +361,12 @@ public class MongoEventStore : IEventStore
         int expectedVersion,
         CancellationToken cancellationToken = default) where TId : notnull
     {
+        if (string.IsNullOrEmpty(aggregateType))
+            throw new ArgumentException("Aggregate type cannot be null or empty", nameof(aggregateType));
+
+        if (events == null)
+            throw new ArgumentNullException(nameof(events));
+
         var collection = GetEventCollection(aggregateType);
         var eventsList = events.ToList();
 
@@ -376,14 +391,17 @@ public class MongoEventStore : IEventStore
 
         foreach (var @event in eventsList)
         {
+            if (@event == null)
+                throw new ArgumentException("Event collection contains null event", nameof(events));
+
             version++;
             var document = new EventDocument
             {
                 AggregateId = aggregateIdStr,
                 AggregateType = aggregateType,
                 Version = version,
-                EventType = @event.EventType,
-                Kind = @event.Kind,
+                EventType = @event.EventType ?? throw new InvalidOperationException($"Event {nameof(@event.EventType)} cannot be null"),
+                Kind = @event.Kind ?? throw new InvalidOperationException($"Event {nameof(@event.Kind)} cannot be null"),
                 EventId = @event.EventId,
                 Timestamp = @event.Timestamp,
                 Data = _serializer.Serialize(@event)
@@ -413,6 +431,12 @@ public class MongoEventStore : IEventStore
         int expectedVersion,
         CancellationToken cancellationToken = default) where TId : notnull
     {
+        if (string.IsNullOrEmpty(aggregateType))
+            throw new ArgumentException("Aggregate type cannot be null or empty", nameof(aggregateType));
+
+        if (@event == null)
+            throw new ArgumentNullException(nameof(@event));
+
         var collection = GetEventCollection(aggregateType);
 
         // Check for concurrency conflicts
@@ -431,8 +455,8 @@ public class MongoEventStore : IEventStore
             AggregateId = aggregateIdStr,
             AggregateType = aggregateType,
             Version = newVersion,
-            EventType = @event.EventType,
-            Kind = @event.Kind,
+            EventType = @event.EventType ?? throw new InvalidOperationException($"Event {nameof(@event.EventType)} cannot be null"),
+            Kind = @event.Kind ?? throw new InvalidOperationException($"Event {nameof(@event.Kind)} cannot be null"),
             EventId = @event.EventId,
             Timestamp = @event.Timestamp,
             Data = _serializer.Serialize(@event)
