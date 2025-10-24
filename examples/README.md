@@ -69,6 +69,44 @@ Content-Type: application/json
 }
 ```
 
+### Get Users with Pagination
+
+```http
+GET /api/users/paginated?pageNumber=1&pageSize=10
+```
+
+**Response (200 OK):**
+```json
+{
+  "users": [
+    {
+      "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "email": "john.doe@example.com",
+      "firstName": "John",
+      "lastName": "Doe",
+      "isActive": true,
+      "deactivationReason": null,
+      "version": 1
+    }
+  ],
+  "pageNumber": 1,
+  "pageSize": 10,
+  "totalCount": 25,
+  "totalPages": 3,
+  "hasNextPage": true,
+  "hasPreviousPage": false
+}
+```
+
+**Parameters:**
+- `pageNumber` (optional): Page number (default: 1)
+- `pageSize` (optional): Items per page (default: 10, max: 100)
+
+**Useful for:**
+- Large datasets with efficient loading
+- UI pagination controls
+- API rate limiting compliance
+
 ### Get a User
 
 ```http
