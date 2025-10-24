@@ -354,6 +354,39 @@ public class MongoEventStore : IEventStore
         return aggregateIds;
     }
 
+    public async Task<PagedResult<string>> GetAggregateIdsPaginatedAsync(
+        string aggregateType,
+        int pageNumber = 1,
+        int pageSize = 10,
+        CancellationToken cancellationToken = default)
+    {
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 10;
+        if (pageSize > 1000) pageSize = 1000; // Limite max pour éviter les abus
+
+        var collection = GetEventCollection(aggregateType);
+
+        // Récupérer tous les IDs distincts d'abord
+        var allDistinctIds = await collection
+            .Distinct(e => e.AggregateId, Builders<EventDocument>.Filter.Empty)
+            .ToListAsync(cancellationToken);
+
+        var totalCount = allDistinctIds.Count;
+
+        if (totalCount == 0)
+        {
+            return PagedResult<string>.Empty(pageNumber, pageSize);
+        }
+
+        // Appliquer la pagination sur la liste
+        var paginatedIds = allDistinctIds
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        return new PagedResult<string>(paginatedIds, pageNumber, pageSize, totalCount);
+    }
+
     public async Task<AppendEventsResult> AppendEventsWithResultAsync<TId>(
         TId aggregateId,
         string aggregateType,

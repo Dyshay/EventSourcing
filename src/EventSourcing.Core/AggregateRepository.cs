@@ -228,4 +228,81 @@ public class AggregateRepository<TAggregate, TId>(
 
         return eventId;
     }
+
+    public async Task<PagedResult<TAggregate>> GetAllPaginatedAsync(
+        int pageNumber = 1,
+        int pageSize = 10,
+        CancellationToken cancellationToken = default)
+    {
+        // Récupérer les IDs paginés
+        var paginatedIds = await _eventStore.GetAggregateIdsPaginatedAsync(
+            _aggregateType,
+            pageNumber,
+            pageSize,
+            cancellationToken);
+
+        if (!paginatedIds.Items.Any())
+        {
+            return PagedResult<TAggregate>.Empty(pageNumber, pageSize);
+        }
+
+        // Charger chaque agrégat
+        var aggregates = new List<TAggregate>();
+
+        foreach (var aggregateIdStr in paginatedIds.Items)
+        {
+            try
+            {
+                // Convertir l'ID string vers le type TId
+                var aggregateId = ConvertToTypedId(aggregateIdStr);
+                var aggregate = await GetByIdAsync(aggregateId, cancellationToken);
+                aggregates.Add(aggregate);
+            }
+            catch (AggregateNotFoundException)
+            {
+                // Ignorer les agrégats qui ne peuvent pas être chargés
+                // (cela peut arriver si des événements sont corrompus)
+                continue;
+            }
+        }
+
+        return new PagedResult<TAggregate>(aggregates, pageNumber, pageSize, paginatedIds.TotalCount);
+    }
+
+    /// <summary>
+    /// Converts a string ID to the typed ID.
+    /// </summary>
+    private TId ConvertToTypedId(string aggregateIdStr)
+    {
+        var idType = typeof(TId);
+
+        try
+        {
+            if (idType == typeof(Guid))
+            {
+                return (TId)(object)Guid.Parse(aggregateIdStr);
+            }
+            else if (idType == typeof(string))
+            {
+                return (TId)(object)aggregateIdStr;
+            }
+            else if (idType == typeof(int))
+            {
+                return (TId)(object)int.Parse(aggregateIdStr);
+            }
+            else if (idType == typeof(long))
+            {
+                return (TId)(object)long.Parse(aggregateIdStr);
+            }
+            else
+            {
+                // Pour d'autres types, essayer la conversion standard
+                return (TId)Convert.ChangeType(aggregateIdStr, idType);
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new AggregateNotFoundException($"Invalid aggregate ID format: '{aggregateIdStr}' cannot be converted to {idType.Name}. {ex.Message}");
+        }
+    }
 }

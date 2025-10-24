@@ -280,7 +280,7 @@ public class AggregateRepositoryTests
                 aggregateId,
                 "TestAggregate",
                 It.Is<IEnumerable<IEvent>>(events => events.Count() == 2),
-                0,
+                0, // Initial version is 0
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(result);
 
@@ -299,6 +299,9 @@ public class AggregateRepositoryTests
         // Assert
         saveResult.Should().NotBeNull();
         saveResult.EventIds.Should().HaveCount(2);
+        saveResult.Events.Should().HaveCount(2);
+        saveResult.Events[0].Should().BeOfType<TestAggregateCreatedEvent>();
+        saveResult.Events[1].Should().BeOfType<TestAggregateRenamedEvent>();
         saveResult.NewVersion.Should().Be(2);
         aggregate.UncommittedEvents.Should().BeEmpty();
         aggregate.Version.Should().Be(2);
@@ -316,6 +319,7 @@ public class AggregateRepositoryTests
         // Assert
         result.Should().NotBeNull();
         result.EventIds.Should().BeEmpty();
+        result.Events.Should().BeEmpty();
         result.NewVersion.Should().Be(0);
 
         _eventStoreMock.Verify(

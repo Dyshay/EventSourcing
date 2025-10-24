@@ -178,6 +178,20 @@ public interface IEventStore
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Retrieves a paginated list of aggregate IDs for a given aggregate type.
+    /// </summary>
+    /// <param name="aggregateType">Type name of the aggregate</param>
+    /// <param name="pageNumber">Page number (1-based)</param>
+    /// <param name="pageSize">Number of items per page</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Paginated list of aggregate IDs</returns>
+    Task<PagedResult<string>> GetAggregateIdsPaginatedAsync(
+        string aggregateType,
+        int pageNumber = 1,
+        int pageSize = 10,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Appends a collection of events to the event store for a specific aggregate and returns the inserted event IDs.
     /// </summary>
     /// <typeparam name="TId">Type of the aggregate identifier</typeparam>

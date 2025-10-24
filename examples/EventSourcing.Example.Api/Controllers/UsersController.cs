@@ -52,6 +52,47 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
+    /// Get users with pagination
+    /// </summary>
+    [HttpGet("paginated")]
+    [ProducesResponseType(typeof(PagedUserResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetUsersPaginated(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        // Valider les paramètres
+        if (pageNumber < 1) pageNumber = 1;
+        if (pageSize < 1) pageSize = 10;
+        if (pageSize > 100) pageSize = 100; // Limite pour éviter les abus
+
+        try
+        {
+            var pagedUsers = await _repository.GetAllPaginatedAsync(pageNumber, pageSize);
+
+            var response = new PagedUserResponse
+            {
+                Users = pagedUsers.Items.Select(MapToResponse).ToList(),
+                PageNumber = pagedUsers.PageNumber,
+                PageSize = pagedUsers.PageSize,
+                TotalCount = pagedUsers.TotalCount,
+                TotalPages = pagedUsers.TotalPages,
+                HasNextPage = pagedUsers.HasNextPage,
+                HasPreviousPage = pagedUsers.HasPreviousPage
+            };
+
+            _logger.LogInformation("Retrieved {Count} users (page {PageNumber}/{TotalPages})",
+                response.Users.Count, pageNumber, response.TotalPages);
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving paginated users");
+            return StatusCode(500, new { error = "Failed to retrieve users" });
+        }
+    }
+
+    /// <summary>
     /// Create a new user
     /// </summary>
     [HttpPost]

@@ -59,6 +59,19 @@ public interface IAggregateRepository<TAggregate, TId>
     /// <returns>The ID of the inserted event</returns>
     /// <exception cref="ConcurrencyException">Thrown when expected version doesn't match</exception>
     Task<Guid> AppendEventAsync(TId aggregateId, IEvent @event, int expectedVersion, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves a paginated list of all aggregates of this type.
+    /// Loads each aggregate from events and snapshots for maximum consistency.
+    /// </summary>
+    /// <param name="pageNumber">Page number (1-based)</param>
+    /// <param name="pageSize">Number of items per page</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Paginated list of aggregates</returns>
+    Task<PagedResult<TAggregate>> GetAllPaginatedAsync(
+        int pageNumber = 1,
+        int pageSize = 10,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
