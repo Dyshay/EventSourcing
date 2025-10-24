@@ -115,20 +115,27 @@ jobs:
         done
 
     - name: Push to NuGet
-      if: ${{ secrets.NUGET_API_KEY != '' }}
+      env:
+        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
       run: |
-        echo "Pushing packages to NuGet..."
+        if [ -z "$NUGET_API_KEY" ]; then
+          echo "⚠️  NUGET_API_KEY secret not found. Skipping NuGet publish."
+          echo "To publish to NuGet, add your NuGet API key as a repository secret named 'NUGET_API_KEY'"
+          exit 0
+        fi
+
+        echo "📦 Pushing packages to NuGet..."
         dotnet nuget push "./packages/*.nupkg" \
-          --api-key ${{ secrets.NUGET_API_KEY }} \
+          --api-key "$NUGET_API_KEY" \
           --source https://api.nuget.org/v3/index.json \
           --skip-duplicate \
           --no-symbols
 
-        echo "Pushing symbol packages to NuGet..."
+        echo "🔍 Pushing symbol packages to NuGet..."
         dotnet nuget push "./packages/*.snupkg" \
-          --api-key ${{ secrets.NUGET_API_KEY }} \
+          --api-key "$NUGET_API_KEY" \
           --source https://api.nuget.org/v3/index.json \
-          --skip-duplicate
+          --skip-duplicate || echo "⚠️  Symbol package upload failed (non-critical)"
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
