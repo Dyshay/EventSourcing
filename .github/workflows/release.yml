@@ -114,28 +114,12 @@ jobs:
           dotnet nuget verify "$package" || echo "Warning: Package verification failed for $package"
         done
 
-    - name: Push to NuGet
-      env:
-        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-      run: |
-        if [ -z "$NUGET_API_KEY" ]; then
-          echo "⚠️  NUGET_API_KEY secret not found. Skipping NuGet publish."
-          echo "To publish to NuGet, add your NuGet API key as a repository secret named 'NUGET_API_KEY'"
-          exit 0
-        fi
-
-        echo "📦 Pushing packages to NuGet..."
-        dotnet nuget push "./packages/*.nupkg" \
-          --api-key "$NUGET_API_KEY" \
-          --source https://api.nuget.org/v3/index.json \
-          --skip-duplicate \
-          --no-symbols
-
-        echo "🔍 Pushing symbol packages to NuGet..."
-        dotnet nuget push "./packages/*.snupkg" \
-          --api-key "$NUGET_API_KEY" \
-          --source https://api.nuget.org/v3/index.json \
-          --skip-duplicate || echo "⚠️  Symbol package upload failed (non-critical)"
+    - name: Upload packages as artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: nuget-packages-${{ steps.get_version.outputs.VERSION }}
+        path: ./packages/
+        retention-days: 30
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
@@ -150,14 +134,24 @@ jobs:
         body: |
           ## 📦 NuGet Packages (v${{ steps.get_version.outputs.VERSION }})
 
+          **⚠️ Les packages sont disponibles en téléchargement ci-dessous et dans les artifacts pour upload manuel vers NuGet.**
+
           | Package | Description |
           |---------|-------------|
-          | [EventSourcing.Abstractions](https://www.nuget.org/packages/EventSourcing.Abstractions/${{ steps.get_version.outputs.VERSION }}) | Core abstractions and interfaces |
-          | [EventSourcing.Core](https://www.nuget.org/packages/EventSourcing.Core/${{ steps.get_version.outputs.VERSION }}) | Core implementation with repository and snapshots |
-          | [EventSourcing.MongoDB](https://www.nuget.org/packages/EventSourcing.MongoDB/${{ steps.get_version.outputs.VERSION }}) | MongoDB provider for event and snapshot stores |
-          | [EventSourcing.CQRS](https://www.nuget.org/packages/EventSourcing.CQRS/${{ steps.get_version.outputs.VERSION }}) | CQRS implementation with command/query buses |
+          | EventSourcing.Abstractions | Core abstractions and interfaces |
+          | EventSourcing.Core | Core implementation with repository and snapshots |
+          | EventSourcing.MongoDB | MongoDB provider for event and snapshot stores |
+          | EventSourcing.CQRS | CQRS implementation with command/query buses |
 
-          ### 🚀 Quick Installation
+          ### 📥 Upload Manuel vers NuGet
+
+          1. Téléchargez les packages depuis cette release ou les artifacts
+          2. Utilisez la commande suivante pour chaque package :
+          ```bash
+          dotnet nuget push EventSourcing.*.nupkg --api-key YOUR_API_KEY --source https://api.nuget.org/v3/index.json
+          ```
+
+          ### 🚀 Installation (une fois publié sur NuGet)
 
           **For MongoDB Event Sourcing:**
           ```bash
