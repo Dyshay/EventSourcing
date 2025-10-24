@@ -19,10 +19,10 @@
     <Nullable>enable</Nullable>
 
     <!-- Package metadata -->
-    <PackageId>EventSourcing.CQRS</PackageId>
+    <PackageId>Dev0x.EventSourcing.CQRS</PackageId>
     <Title>EventSourcing CQRS</Title>
     <Description>CQRS implementation with command and query buses, middleware support, and RabbitMQ integration</Description>
-    <Authors>Kry</Authors>
+    <Authors>Dev0x</Authors>
     <PackageTags>eventsourcing;cqrs;commandbus;querybus;middleware;rabbitmq</PackageTags>
     <PackageProjectUrl>https://github.com/Dyshay/EventSourcing</PackageProjectUrl>
     <RepositoryUrl>https://github.com/Dyshay/EventSourcing</RepositoryUrl>

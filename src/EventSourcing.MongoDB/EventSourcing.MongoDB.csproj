@@ -16,10 +16,10 @@
     <Nullable>enable</Nullable>
 
     <!-- Package metadata -->
-    <PackageId>EventSourcing.MongoDB</PackageId>
+    <PackageId>Dev0x.EventSourcing.MongoDB</PackageId>
     <Title>EventSourcing MongoDB Provider</Title>
     <Description>MongoDB implementation for EventSourcing library providing event store and snapshot store</Description>
-    <Authors>Kry</Authors>
+    <Authors>Dev0x</Authors>
     <PackageTags>eventsourcing;mongodb;nosql;eventstore;snapshots</PackageTags>
     <PackageProjectUrl>https://github.com/Dyshay/EventSourcing</PackageProjectUrl>
     <RepositoryUrl>https://github.com/Dyshay/EventSourcing</RepositoryUrl>

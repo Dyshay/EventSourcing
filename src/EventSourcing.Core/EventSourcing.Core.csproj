@@ -16,10 +16,10 @@
     <Nullable>enable</Nullable>
 
     <!-- Package metadata -->
-    <PackageId>EventSourcing.Core</PackageId>
+    <PackageId>Dev0x.EventSourcing.Core</PackageId>
     <Title>EventSourcing Core</Title>
     <Description>Core implementation for event sourcing with aggregate repository, snapshots, and event publishing</Description>
-    <Authors>Kry</Authors>
+    <Authors>Dev0x</Authors>
     <PackageTags>eventsourcing;cqrs;ddd;aggregate;snapshots</PackageTags>
     <PackageProjectUrl>https://github.com/Dyshay/EventSourcing</PackageProjectUrl>
     <RepositoryUrl>https://github.com/Dyshay/EventSourcing</RepositoryUrl>

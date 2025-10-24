@@ -121,6 +121,23 @@ jobs:
         path: ./packages/
         retention-days: 30
 
+    - name: Publish to NuGet
+      run: |
+        if [ -z "${{ secrets.NUGET_API_KEY }}" ]; then
+          echo "⚠️ NUGET_API_KEY secret not found. Skipping NuGet publish."
+          echo "📦 Packages are available in artifacts for manual upload."
+        else
+          echo "🚀 Publishing packages to NuGet..."
+          for package in ./packages/*.nupkg; do
+            echo "Publishing $package"
+            dotnet nuget push "$package" \
+              --api-key ${{ secrets.NUGET_API_KEY }} \
+              --source https://api.nuget.org/v3/index.json \
+              --skip-duplicate
+          done
+          echo "✅ All packages published successfully!"
+        fi
+
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
@@ -138,35 +155,35 @@ jobs:
 
           | Package | Description |
           |---------|-------------|
-          | EventSourcing.Abstractions | Core abstractions and interfaces |
-          | EventSourcing.Core | Core implementation with repository and snapshots |
-          | EventSourcing.MongoDB | MongoDB provider for event and snapshot stores |
-          | EventSourcing.CQRS | CQRS implementation with command/query buses |
+          | Dev0x.EventSourcing.Abstractions | Core abstractions and interfaces |
+          | Dev0x.EventSourcing.Core | Core implementation with repository and snapshots |
+          | Dev0x.EventSourcing.MongoDB | MongoDB provider for event and snapshot stores |
+          | Dev0x.EventSourcing.CQRS | CQRS implementation with command/query buses |
 
           ### 📥 Upload Manuel vers NuGet
 
           1. Téléchargez les packages depuis cette release ou les artifacts
           2. Utilisez la commande suivante pour chaque package :
           ```bash
-          dotnet nuget push EventSourcing.*.nupkg --api-key YOUR_API_KEY --source https://api.nuget.org/v3/index.json
+          dotnet nuget push Dev0x.EventSourcing.*.nupkg --api-key YOUR_API_KEY --source https://api.nuget.org/v3/index.json
           ```
 
           ### 🚀 Installation (une fois publié sur NuGet)
 
           **For MongoDB Event Sourcing:**
           ```bash
-          dotnet add package EventSourcing.MongoDB --version ${{ steps.get_version.outputs.VERSION }}
+          dotnet add package Dev0x.EventSourcing.MongoDB --version ${{ steps.get_version.outputs.VERSION }}
           ```
 
           **For CQRS with Event Sourcing:**
           ```bash
-          dotnet add package EventSourcing.CQRS --version ${{ steps.get_version.outputs.VERSION }}
-          dotnet add package EventSourcing.MongoDB --version ${{ steps.get_version.outputs.VERSION }}
+          dotnet add package Dev0x.EventSourcing.CQRS --version ${{ steps.get_version.outputs.VERSION }}
+          dotnet add package Dev0x.EventSourcing.MongoDB --version ${{ steps.get_version.outputs.VERSION }}
           ```
 
           **Core only:**
           ```bash
-          dotnet add package EventSourcing.Core --version ${{ steps.get_version.outputs.VERSION }}
+          dotnet add package Dev0x.EventSourcing.Core --version ${{ steps.get_version.outputs.VERSION }}
           ```
 
           ### 🔗 Links

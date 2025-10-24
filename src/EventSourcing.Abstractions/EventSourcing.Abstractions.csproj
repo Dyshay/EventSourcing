@@ -6,10 +6,10 @@
     <Nullable>enable</Nullable>
 
     <!-- Package metadata -->
-    <PackageId>EventSourcing.Abstractions</PackageId>
+    <PackageId>Dev0x.EventSourcing.Abstractions</PackageId>
     <Title>EventSourcing Abstractions</Title>
     <Description>Core abstractions and interfaces for event sourcing implementation</Description>
-    <Authors>Kry</Authors>
+    <Authors>Dev0x</Authors>
     <PackageTags>eventsourcing;cqrs;ddd;abstractions</PackageTags>
     <PackageProjectUrl>https://github.com/Dyshay/EventSourcing</PackageProjectUrl>
     <RepositoryUrl>https://github.com/Dyshay/EventSourcing</RepositoryUrl>
