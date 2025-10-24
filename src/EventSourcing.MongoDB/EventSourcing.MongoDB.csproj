@@ -14,7 +14,25 @@
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+
+    <!-- Package metadata -->
+    <PackageId>EventSourcing.MongoDB</PackageId>
+    <Title>EventSourcing MongoDB Provider</Title>
+    <Description>MongoDB implementation for EventSourcing library providing event store and snapshot store</Description>
+    <Authors>Kry</Authors>
+    <PackageTags>eventsourcing;mongodb;nosql;eventstore;snapshots</PackageTags>
+    <PackageProjectUrl>https://github.com/Dyshay/EventSourcing</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Dyshay/EventSourcing</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="EventSourcing.Tests" />

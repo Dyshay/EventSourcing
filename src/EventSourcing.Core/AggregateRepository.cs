@@ -144,4 +144,89 @@ public class AggregateRepository<TAggregate, TId> : IAggregateRepository<TAggreg
             return false;
         }
     }
+
+    public async Task<AppendEventsResult> SaveWithResultAsync(TAggregate aggregate, CancellationToken cancellationToken = default)
+    {
+        var uncommittedEvents = aggregate.UncommittedEvents.ToList();
+
+        if (!uncommittedEvents.Any())
+        {
+            // Nothing to save, return empty result
+            return AppendEventsResult.Empty(aggregate.Version);
+        }
+
+        // Append events to event store and get result with event IDs
+        var result = await _eventStore.AppendEventsWithResultAsync(
+            aggregate.Id,
+            _aggregateType,
+            uncommittedEvents,
+            aggregate.Version,
+            cancellationToken);
+
+        // Mark events as committed
+        aggregate.MarkEventsAsCommitted();
+        aggregate.Version = result.NewVersion;
+
+        // Publish events to projections and external publishers (if configured)
+        if (_eventBus != null)
+        {
+            await _eventBus.PublishAsync(uncommittedEvents, cancellationToken);
+        }
+
+        // Check if we should create a snapshot
+        var snapshot = await _snapshotStore.GetLatestSnapshotAsync<TId, TAggregate>(
+            aggregate.Id,
+            _aggregateType,
+            cancellationToken);
+
+        var eventCountSinceSnapshot = snapshot != null
+            ? result.NewVersion - snapshot.Version
+            : result.NewVersion;
+
+        if (_snapshotStrategy.ShouldCreateSnapshot(aggregate, eventCountSinceSnapshot, snapshot?.Timestamp))
+        {
+            await _snapshotStore.SaveSnapshotAsync(
+                aggregate.Id,
+                _aggregateType,
+                aggregate,
+                result.NewVersion,
+                cancellationToken);
+        }
+
+        return result;
+    }
+
+    public async Task<Guid> AppendEventAsync(TId aggregateId, IEvent @event, int expectedVersion, CancellationToken cancellationToken = default)
+    {
+        // Append the single event directly to the event store
+        var eventId = await _eventStore.AppendEventAsync(
+            aggregateId,
+            _aggregateType,
+            @event,
+            expectedVersion,
+            cancellationToken);
+
+        // Publish the event to projections and external publishers (if configured)
+        if (_eventBus != null)
+        {
+            await _eventBus.PublishAsync(new[] { @event }, cancellationToken);
+        }
+
+        // Check if we should create a snapshot
+        var newVersion = expectedVersion + 1;
+        var snapshot = await _snapshotStore.GetLatestSnapshotAsync<TId, TAggregate>(
+            aggregateId,
+            _aggregateType,
+            cancellationToken);
+
+        var eventCountSinceSnapshot = snapshot != null
+            ? newVersion - snapshot.Version
+            : newVersion;
+
+        // Only create snapshot if we have an aggregate instance (would need to load it)
+        // For now, we skip snapshot creation for direct event appends
+        // as it would require loading the aggregate which defeats the purpose
+
+        return eventId;
+    }
 }

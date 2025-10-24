@@ -14,6 +14,24 @@
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+
+    <!-- Package metadata -->
+    <PackageId>EventSourcing.Core</PackageId>
+    <Title>EventSourcing Core</Title>
+    <Description>Core implementation for event sourcing with aggregate repository, snapshots, and event publishing</Description>
+    <Authors>Kry</Authors>
+    <PackageTags>eventsourcing;cqrs;ddd;aggregate;snapshots</PackageTags>
+    <PackageProjectUrl>https://github.com/Dyshay/EventSourcing</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Dyshay/EventSourcing</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
 
 </Project>

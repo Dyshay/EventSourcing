@@ -176,4 +176,40 @@ public interface IEventStore
     Task<IEnumerable<string>> GetAllAggregateIdsAsync(
         string aggregateType,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Appends a collection of events to the event store for a specific aggregate and returns the inserted event IDs.
+    /// </summary>
+    /// <typeparam name="TId">Type of the aggregate identifier</typeparam>
+    /// <param name="aggregateId">Identifier of the aggregate</param>
+    /// <param name="aggregateType">Type name of the aggregate</param>
+    /// <param name="events">Events to append</param>
+    /// <param name="expectedVersion">Expected current version for optimistic concurrency</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Result containing the IDs of inserted events and the new version</returns>
+    /// <exception cref="ConcurrencyException">Thrown when expected version doesn't match</exception>
+    Task<AppendEventsResult> AppendEventsWithResultAsync<TId>(
+        TId aggregateId,
+        string aggregateType,
+        IEnumerable<IEvent> events,
+        int expectedVersion,
+        CancellationToken cancellationToken = default) where TId : notnull;
+
+    /// <summary>
+    /// Appends a single event to the event store for a specific aggregate and returns the inserted event ID.
+    /// </summary>
+    /// <typeparam name="TId">Type of the aggregate identifier</typeparam>
+    /// <param name="aggregateId">Identifier of the aggregate</param>
+    /// <param name="aggregateType">Type name of the aggregate</param>
+    /// <param name="event">Event to append</param>
+    /// <param name="expectedVersion">Expected current version for optimistic concurrency</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>The ID of the inserted event</returns>
+    /// <exception cref="ConcurrencyException">Thrown when expected version doesn't match</exception>
+    Task<Guid> AppendEventAsync<TId>(
+        TId aggregateId,
+        string aggregateType,
+        IEvent @event,
+        int expectedVersion,
+        CancellationToken cancellationToken = default) where TId : notnull;
 }

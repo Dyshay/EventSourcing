@@ -345,6 +345,113 @@ public class MongoEventStore : IEventStore
         return aggregateIds;
     }
 
+    public async Task<AppendEventsResult> AppendEventsWithResultAsync<TId>(
+        TId aggregateId,
+        string aggregateType,
+        IEnumerable<IEvent> events,
+        int expectedVersion,
+        CancellationToken cancellationToken = default) where TId : notnull
+    {
+        var collection = GetEventCollection(aggregateType);
+        var eventsList = events.ToList();
+
+        if (!eventsList.Any())
+        {
+            return AppendEventsResult.Empty(expectedVersion);
+        }
+
+        // Check for concurrency conflicts
+        var aggregateIdStr = aggregateId.ToString()!;
+        var currentVersion = await GetCurrentVersionAsync(collection, aggregateIdStr, cancellationToken);
+
+        if (currentVersion != expectedVersion)
+        {
+            throw new ConcurrencyException(aggregateId, expectedVersion, currentVersion);
+        }
+
+        // Create event documents and collect event IDs
+        var documents = new List<EventDocument>();
+        var eventIds = new List<Guid>();
+        var version = expectedVersion;
+
+        foreach (var @event in eventsList)
+        {
+            version++;
+            var document = new EventDocument
+            {
+                AggregateId = aggregateIdStr,
+                AggregateType = aggregateType,
+                Version = version,
+                EventType = @event.EventType,
+                Kind = @event.Kind,
+                EventId = @event.EventId,
+                Timestamp = @event.Timestamp,
+                Data = _serializer.Serialize(@event)
+            };
+            documents.Add(document);
+            eventIds.Add(@event.EventId);
+        }
+
+        // Insert all events atomically
+        try
+        {
+            await collection.InsertManyAsync(documents, cancellationToken: cancellationToken);
+            return new AppendEventsResult(eventIds, version);
+        }
+        catch (MongoWriteException ex) when (ex.WriteError.Category == ServerErrorCategory.DuplicateKey)
+        {
+            // Concurrency conflict detected
+            throw new ConcurrencyException(
+                $"Concurrency conflict detected when appending events for aggregate '{aggregateId}'", ex);
+        }
+    }
+
+    public async Task<Guid> AppendEventAsync<TId>(
+        TId aggregateId,
+        string aggregateType,
+        IEvent @event,
+        int expectedVersion,
+        CancellationToken cancellationToken = default) where TId : notnull
+    {
+        var collection = GetEventCollection(aggregateType);
+
+        // Check for concurrency conflicts
+        var aggregateIdStr = aggregateId.ToString()!;
+        var currentVersion = await GetCurrentVersionAsync(collection, aggregateIdStr, cancellationToken);
+
+        if (currentVersion != expectedVersion)
+        {
+            throw new ConcurrencyException(aggregateId, expectedVersion, currentVersion);
+        }
+
+        // Create event document
+        var newVersion = expectedVersion + 1;
+        var document = new EventDocument
+        {
+            AggregateId = aggregateIdStr,
+            AggregateType = aggregateType,
+            Version = newVersion,
+            EventType = @event.EventType,
+            Kind = @event.Kind,
+            EventId = @event.EventId,
+            Timestamp = @event.Timestamp,
+            Data = _serializer.Serialize(@event)
+        };
+
+        // Insert the event
+        try
+        {
+            await collection.InsertOneAsync(document, cancellationToken: cancellationToken);
+            return @event.EventId;
+        }
+        catch (MongoWriteException ex) when (ex.WriteError.Category == ServerErrorCategory.DuplicateKey)
+        {
+            // Concurrency conflict detected
+            throw new ConcurrencyException(
+                $"Concurrency conflict detected when appending event for aggregate '{aggregateId}'", ex);
+        }
+    }
+
     /// <summary>
     /// Deserializes an event from storage and applies any registered upcasters
     /// </summary>

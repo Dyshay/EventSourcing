@@ -68,32 +68,109 @@ jobs:
 
     - name: Pack NuGet packages
       run: |
-        dotnet pack src/EventSourcing.Abstractions/EventSourcing.Abstractions.csproj --configuration Release --no-build --output ./packages -p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
-        dotnet pack src/EventSourcing.Core/EventSourcing.Core.csproj --configuration Release --no-build --output ./packages -p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
-        dotnet pack src/EventSourcing.MongoDB/EventSourcing.MongoDB.csproj --configuration Release --no-build --output ./packages -p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
-        dotnet pack src/EventSourcing.CQRS/EventSourcing.CQRS.csproj --configuration Release --no-build --output ./packages -p:PackageVersion=${{ steps.get_version.outputs.VERSION }}
+        mkdir -p ./packages
+        dotnet pack src/EventSourcing.Abstractions/EventSourcing.Abstractions.csproj \
+          --configuration Release \
+          --no-build \
+          --output ./packages \
+          -p:PackageVersion=${{ steps.get_version.outputs.VERSION }} \
+          -p:IncludeSymbols=true \
+          -p:SymbolPackageFormat=snupkg
+
+        dotnet pack src/EventSourcing.Core/EventSourcing.Core.csproj \
+          --configuration Release \
+          --no-build \
+          --output ./packages \
+          -p:PackageVersion=${{ steps.get_version.outputs.VERSION }} \
+          -p:IncludeSymbols=true \
+          -p:SymbolPackageFormat=snupkg
+
+        dotnet pack src/EventSourcing.MongoDB/EventSourcing.MongoDB.csproj \
+          --configuration Release \
+          --no-build \
+          --output ./packages \
+          -p:PackageVersion=${{ steps.get_version.outputs.VERSION }} \
+          -p:IncludeSymbols=true \
+          -p:SymbolPackageFormat=snupkg
+
+        dotnet pack src/EventSourcing.CQRS/EventSourcing.CQRS.csproj \
+          --configuration Release \
+          --no-build \
+          --output ./packages \
+          -p:PackageVersion=${{ steps.get_version.outputs.VERSION }} \
+          -p:IncludeSymbols=true \
+          -p:SymbolPackageFormat=snupkg
+
+    - name: List generated packages
+      run: |
+        echo "Generated packages:"
+        ls -la ./packages/
+
+    - name: Validate packages
+      run: |
+        echo "Validating NuGet packages..."
+        for package in ./packages/*.nupkg; do
+          echo "Checking $package"
+          dotnet nuget verify "$package" || echo "Warning: Package verification failed for $package"
+        done
 
     - name: Push to NuGet
-      run: dotnet nuget push ./packages/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+      if: ${{ secrets.NUGET_API_KEY != '' }}
+      run: |
+        echo "Pushing packages to NuGet..."
+        dotnet nuget push "./packages/*.nupkg" \
+          --api-key ${{ secrets.NUGET_API_KEY }} \
+          --source https://api.nuget.org/v3/index.json \
+          --skip-duplicate \
+          --no-symbols
+
+        echo "Pushing symbol packages to NuGet..."
+        dotnet nuget push "./packages/*.snupkg" \
+          --api-key ${{ secrets.NUGET_API_KEY }} \
+          --source https://api.nuget.org/v3/index.json \
+          --skip-duplicate
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ steps.get_version.outputs.TAG }}
         name: Release ${{ steps.get_version.outputs.VERSION }}
-        files: ./packages/*.nupkg
+        files: |
+          ./packages/*.nupkg
+          ./packages/*.snupkg
         generate_release_notes: true
         prerelease: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.prerelease == 'true' || false }}
         body: |
-          ## NuGet Packages
-          - EventSourcing.Abstractions ${{ steps.get_version.outputs.VERSION }}
-          - EventSourcing.Core ${{ steps.get_version.outputs.VERSION }}
-          - EventSourcing.MongoDB ${{ steps.get_version.outputs.VERSION }}
-          - EventSourcing.CQRS ${{ steps.get_version.outputs.VERSION }}
+          ## 📦 NuGet Packages (v${{ steps.get_version.outputs.VERSION }})
 
-          ### Installation
+          | Package | Description |
+          |---------|-------------|
+          | [EventSourcing.Abstractions](https://www.nuget.org/packages/EventSourcing.Abstractions/${{ steps.get_version.outputs.VERSION }}) | Core abstractions and interfaces |
+          | [EventSourcing.Core](https://www.nuget.org/packages/EventSourcing.Core/${{ steps.get_version.outputs.VERSION }}) | Core implementation with repository and snapshots |
+          | [EventSourcing.MongoDB](https://www.nuget.org/packages/EventSourcing.MongoDB/${{ steps.get_version.outputs.VERSION }}) | MongoDB provider for event and snapshot stores |
+          | [EventSourcing.CQRS](https://www.nuget.org/packages/EventSourcing.CQRS/${{ steps.get_version.outputs.VERSION }}) | CQRS implementation with command/query buses |
+
+          ### 🚀 Quick Installation
+
+          **For MongoDB Event Sourcing:**
           ```bash
           dotnet add package EventSourcing.MongoDB --version ${{ steps.get_version.outputs.VERSION }}
           ```
+
+          **For CQRS with Event Sourcing:**
+          ```bash
+          dotnet add package EventSourcing.CQRS --version ${{ steps.get_version.outputs.VERSION }}
+          dotnet add package EventSourcing.MongoDB --version ${{ steps.get_version.outputs.VERSION }}
+          ```
+
+          **Core only:**
+          ```bash
+          dotnet add package EventSourcing.Core --version ${{ steps.get_version.outputs.VERSION }}
+          ```
+
+          ### 🔗 Links
+          - 📚 [Documentation](https://github.com/Dyshay/EventSourcing#readme)
+          - 🐛 [Report Issues](https://github.com/Dyshay/EventSourcing/issues)
+          - 💬 [Discussions](https://github.com/Dyshay/EventSourcing/discussions)
       env:
-        GITHUB_TOKEN: ${{ secrets.GTB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
