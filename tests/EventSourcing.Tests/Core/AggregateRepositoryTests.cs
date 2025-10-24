@@ -262,4 +262,92 @@ public class AggregateRepositoryTests
         // Assert
         exists.Should().BeFalse();
     }
+
+    [Fact]
+    public async Task SaveWithResultAsync_ShouldReturnResult_WithEventIds()
+    {
+        // Arrange
+        var aggregate = new TestAggregate();
+        var aggregateId = Guid.NewGuid();
+        aggregate.Create(aggregateId, "John Doe", "john@example.com");
+        aggregate.Rename("Jane Doe");
+
+        var eventIds = new List<Guid> { Guid.NewGuid(), Guid.NewGuid() };
+        var result = new AppendEventsResult(eventIds, 2);
+
+        _eventStoreMock
+            .Setup(e => e.AppendEventsWithResultAsync(
+                aggregateId,
+                "TestAggregate",
+                It.Is<IEnumerable<IEvent>>(events => events.Count() == 2),
+                0,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(result);
+
+        _snapshotStoreMock
+            .Setup(s => s.GetLatestSnapshotAsync<Guid, TestAggregate>(
+                aggregateId, "TestAggregate", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Snapshot<TestAggregate>?)null);
+
+        _snapshotStrategyMock
+            .Setup(s => s.ShouldCreateSnapshot(aggregate, 2, null))
+            .Returns(false);
+
+        // Act
+        var saveResult = await _repository.SaveWithResultAsync(aggregate);
+
+        // Assert
+        saveResult.Should().NotBeNull();
+        saveResult.EventIds.Should().HaveCount(2);
+        saveResult.NewVersion.Should().Be(2);
+        aggregate.UncommittedEvents.Should().BeEmpty();
+        aggregate.Version.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task SaveWithResultAsync_ShouldReturnEmptyResult_WhenNoUncommittedEvents()
+    {
+        // Arrange
+        var aggregate = new TestAggregate();
+
+        // Act
+        var result = await _repository.SaveWithResultAsync(aggregate);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.EventIds.Should().BeEmpty();
+        result.NewVersion.Should().Be(0);
+
+        _eventStoreMock.Verify(
+            e => e.AppendEventsWithResultAsync(
+                It.IsAny<Guid>(),
+                It.IsAny<string>(),
+                It.IsAny<IEnumerable<IEvent>>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task SaveWithResultAsync_ShouldThrowInvalidOperationException_WhenEventStoreReturnsNull()
+    {
+        // Arrange
+        var aggregate = new TestAggregate();
+        var aggregateId = Guid.NewGuid();
+        aggregate.Create(aggregateId, "John Doe", "john@example.com");
+
+        _eventStoreMock
+            .Setup(e => e.AppendEventsWithResultAsync(
+                aggregateId,
+                "TestAggregate",
+                It.IsAny<IEnumerable<IEvent>>(),
+                0,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((AppendEventsResult)null!);
+
+        // Act & Assert
+        var act = async () => await _repository.SaveWithResultAsync(aggregate);
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Event store returned null result from AppendEventsWithResultAsync");
+    }
 }

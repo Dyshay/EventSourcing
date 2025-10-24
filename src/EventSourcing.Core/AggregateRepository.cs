@@ -163,6 +163,11 @@ public class AggregateRepository<TAggregate, TId> : IAggregateRepository<TAggreg
             aggregate.Version,
             cancellationToken);
 
+        if (result == null)
+        {
+            throw new InvalidOperationException("Event store returned null result from AppendEventsWithResultAsync");
+        }
+
         // Mark events as committed
         aggregate.MarkEventsAsCommitted();
         aggregate.Version = result.NewVersion;
